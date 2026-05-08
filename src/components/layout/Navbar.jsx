@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import logo from '../../assets/logo.png'
@@ -7,9 +7,32 @@ export default function Navbar({ sidebarOpen, setSidebarOpen }) {
   const location = useLocation()
   const { user, profile, signOut } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const menuRef = useRef(null)
 
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowUserMenu(false)
+      }
+    }
+
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showUserMenu])
+
+  const handleSignOut = async () => {
+    setShowUserMenu(false)
+    await signOut()
+  }
 
   return (
     <header style={{
@@ -50,7 +73,7 @@ export default function Navbar({ sidebarOpen, setSidebarOpen }) {
       </div>
 
       {/* Right */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }} ref={menuRef}>
         <button
           className="material-symbols-outlined"
           style={{ background: 'none', border: '2px solid transparent', cursor: 'pointer', padding: '6px', color: 'var(--on-background)', transition: 'all 0.1s' }}
@@ -97,7 +120,7 @@ export default function Navbar({ sidebarOpen, setSidebarOpen }) {
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--on-surface-variant)', marginTop: '2px' }}>{user?.email}</p>
             </div>
             <button
-              onClick={() => { setShowUserMenu(false); signOut() }}
+              onClick={handleSignOut}
               style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 width: '100%', padding: 'var(--space-xs) var(--space-sm)',
