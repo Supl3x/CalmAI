@@ -23,7 +23,7 @@ export default function PriorityEngine() {
         .from('tasks')
         .select('*')
         .eq('user_id', user.id)
-        .eq('is_complete', false)
+        .eq('status', 'todo')
         .order('ai_priority_score', { ascending: false })
       if (error) throw error
       setTasks(data ?? [])
@@ -38,13 +38,8 @@ export default function PriorityEngine() {
   useEffect(() => { loadTasks() }, [user?.id])
 
   // Re-fetch when user switches back to this tab
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && user) loadTasks()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [user?.id])
+  // Note: we intentionally do NOT re-fetch on tab focus.
+  // This app is SPA-routed and users hated "reloads" when coming back to a page.
 
   const handleRerank = async () => {
     setExplaining(true)

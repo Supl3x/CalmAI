@@ -1,20 +1,7 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-async function getGoogleToken(userId: string, supabase: any): Promise<string> {
-  const refreshRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/refresh-google-token`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-    },
-    body: JSON.stringify({ userId })
-  })
-  const { access_token, error } = await refreshRes.json()
-  if (error || !access_token) throw new Error('Google auth failed: ' + error)
-  return access_token
-}
+import { getGoogleAccessToken } from '../_shared/google.ts'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
@@ -23,8 +10,6 @@ serve(async (req) => {
     const { userId, googleToken } = await req.json()
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const today = new Date().toISOString().split('T')[0]
-    const GROQ_KEY = Deno.env.get('GROQ_API_KEY')
-
     // 1. Fetch user's tasks from DB
     const { data: tasks } = await supabase.from('tasks')
       .select('title, description, ai_priority_score').eq('user_id', userId).eq('status', 'todo')
@@ -40,92 +25,55 @@ serve(async (req) => {
     const yesterdayStr = yesterday.toISOString().split('T')[0]
     const { data: yesterdayStats } = await supabase.from('analytics').select('tasks_completed, focus_minutes').eq('user_id', userId).eq('week_start', yesterdayStr).single()
 
-    // 3. Fetch today's calendar events
+    // 3. Fetch today's calendar events (ONLY Calendar; no Gmail/Drive here)
     let calendarEvents: any[] = []
-    let unreadEmailCount = 0
     try {
       // Use browser-provided GIS token first, fall back to stored token
-      const token = googleToken ?? await getGoogleToken(userId, supabase)
+      const token = googleToken ?? await getGoogleAccessToken({ supabase, userId })
 
       const now = new Date()
       const dayEnd = new Date(now)
       dayEnd.setHours(23, 59, 59, 0)
 
-      const [calRes, gmailRes] = await Promise.all([
-        fetch(
-          `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${dayEnd.toISOString()}&singleEvents=true&orderBy=startTime`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        ),
-        fetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults=1`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-      ])
+      const calRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${dayEnd.toISOString()}&singleEvents=true&orderBy=startTime`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
 
       const calData = await calRes.json()
-      const gmailData = await gmailRes.json()
 
       calendarEvents = (calData.items ?? []).map((e: any) => ({
+        id: e.id,
         name: e.summary ?? 'Untitled',
         time: e.start?.dateTime
           ? new Date(e.start.dateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-          : 'All day'
+          : 'All day',
+        start: e.start?.dateTime ?? e.start?.date,
+        end: e.end?.dateTime ?? e.end?.date,
+        description: e.description ?? '',
+        location: e.location ?? '',
+        meetLink: e.hangoutLink ?? e.conferenceData?.entryPoints?.find((p: any) => p.entryPointType === 'video')?.uri ?? '',
+        attendees: (e.attendees ?? []).filter((a: any) => !a.resource).map((a: any) => ({ email: a.email, responseStatus: a.responseStatus })),
       }))
-      unreadEmailCount = gmailData.resultSizeEstimate ?? 0
     } catch (e: any) {
-      console.warn('Google API unavailable, using task data only:', e.message)
+      console.warn('Google Calendar unavailable, using task data only:', e.message)
     }
 
-    // 4. Build AI prompt with real data
-    const prompt = `You are a calm productivity AI generating a morning briefing.
-User data:
-- Top tasks (by priority): ${JSON.stringify(tasks)}
-- Open mental loops: ${loopCount ?? 0}
-- Yesterday's performance: ${JSON.stringify(yesterdayStats ?? { tasks_completed: 0, focus_minutes: 0 })}
-- Today's Google Calendar events: ${JSON.stringify(calendarEvents)}
-
-IMPORTANT: The calendar events above are HARD commitments. Build the suggested_schedule AROUND them, filling the gaps with focused work blocks.
-If there are 3+ calendar events OR 8+ tasks, set cognitive_overload_warning.is_overloaded to true.
-
-Return ONLY this JSON structure, no extra text:
-{
-  "top_3_priorities": ["top task 1", "top task 2", "top task 3"],
-  "suggested_schedule": [
-    { "time": "9:00 AM", "activity": "..." },
-    { "time": "11:00 AM", "activity": "..." }
-  ],
-  "cognitive_overload_warning": { "is_overloaded": false, "message": "gentle warning if too packed, else null" },
-  "motivational_insight": "one sentence based on workload and yesterday's performance"
-}`
-
-    // 5. Call Groq AI
-    let content: any = {}
-    try {
-      const aiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.5, max_tokens: 1000
-        })
-      })
-      const json = await aiRes.json()
-      const rawContent = json.choices[0].message.content.replace(/```json?/gi, '').replace(/```/g, '').trim()
-      content = JSON.parse(rawContent)
-    } catch (e) {
-      content = {
-        top_3_priorities: tasks?.map((t: any) => t.title || t.description).slice(0, 3) ?? [],
-        suggested_schedule: calendarEvents.map((e: any) => ({ time: e.time, activity: e.name })),
-        cognitive_overload_warning: { is_overloaded: false, message: null },
-        motivational_insight: 'Focus on what matters most today.',
-      }
+    // 4. Deterministic "briefing" content: calendar is the only external dependency.
+    const overload = (calendarEvents?.length ?? 0) >= 3 || (tasks?.length ?? 0) >= 8
+    const content: any = {
+      top_3_priorities: (tasks ?? []).map((t: any) => t.title || t.description).slice(0, 3),
+      suggested_schedule: (calendarEvents ?? []).map((e: any) => ({ time: e.time, activity: e.name })),
+      cognitive_overload_warning: {
+        is_overloaded: overload,
+        message: overload ? 'Your day is packed. Protect 1 deep-work block and say no to one optional thing.' : null
+      },
+      motivational_insight: 'One calm block of progress beats frantic multitasking.',
+      calendar_events: calendarEvents ?? [],
+      unread_emails: 0,
+      open_loops: loopCount ?? 0,
+      yesterday: yesterdayStats ?? { tasks_completed: 0, focus_minutes: 0 },
     }
-
-    // Always inject raw calendar events and unread count into the saved content
-    // so the frontend can render them independently of AI output
-    content.calendar_events = calendarEvents
-    content.unread_emails = unreadEmailCount
 
     // 6. Save to daily_briefings
     await supabase.from('daily_briefings').upsert({

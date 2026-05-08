@@ -127,13 +127,6 @@ Return ONLY valid JSON array, no explanation, no markdown:
       }
     }
     loadSubtasks()
-
-    // Re-fetch when tab becomes visible again
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') loadSubtasks()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [user?.id])
 
   return (

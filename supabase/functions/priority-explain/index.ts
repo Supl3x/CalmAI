@@ -1,19 +1,24 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getGoogleAccessToken, getGroqApiKey } from '../_shared/google.ts'
 
-async function getGoogleToken(userId: string, supabase: any): Promise<string> {
-  const refreshRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/refresh-google-token`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-    },
-    body: JSON.stringify({ userId })
-  })
-  const { access_token, error } = await refreshRes.json()
-  if (error || !access_token) throw new Error('Google auth failed: ' + error)
-  return access_token
+function decodeBase64Url(input: string): string {
+  return atob(input.replace(/-/g, '+').replace(/_/g, '/'))
+}
+
+function extractPlainText(payload: any): string {
+  if (!payload) return ''
+  if (payload.mimeType === 'text/plain' && payload.body?.data) {
+    return decodeBase64Url(payload.body.data)
+  }
+  if (payload.parts?.length) {
+    for (const part of payload.parts) {
+      const text = extractPlainText(part)
+      if (text) return text
+    }
+  }
+  return ''
 }
 
 serve(async (req) => {
@@ -22,20 +27,19 @@ serve(async (req) => {
   try {
     const { userId, googleToken } = await req.json()
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-    const GROQ_KEY = Deno.env.get('GROQ_API_KEY')
+    const GROQ_KEY = getGroqApiKey()
 
     // Use browser-provided token (GIS flow) or fall back to stored token
     let token: string | null = googleToken ?? null
     if (!token) {
       try {
-        token = await getGoogleToken(userId, supabase)
+        token = await getGoogleAccessToken({ supabase, userId })
       } catch (e) {
         console.warn('Could not get stored Google token, skipping Gmail parsing', e)
       }
     }
 
-    // 1. Fetch unread emails from Gmail
-    let newTasksFromGmail = []
+    // 1. Import tasks ONLY from Gmail (unread) into tasks table
     if (token) {
       try {
         const gmailRes = await fetch(
@@ -52,8 +56,13 @@ serve(async (req) => {
               headers: { Authorization: `Bearer ${token}` }
             })
             const msgData = await msgRes.json()
-            const snippet = msgData.snippet ?? ""
-            if (snippet) emailTexts.push(snippet)
+            const headers = msgData.payload?.headers ?? []
+            const subject = headers.find((h: any) => h.name === 'Subject')?.value ?? '(No subject)'
+            const from = headers.find((h: any) => h.name === 'From')?.value ?? ''
+            const body = extractPlainText(msgData.payload).slice(0, 4000)
+
+            const combined = `From: ${from}\nSubject: ${subject}\n\n${body || msgData.snippet || ''}`.trim()
+            if (combined) emailTexts.push(combined)
           }
 
           if (emailTexts.length > 0) {
@@ -79,15 +88,28 @@ Extract any actionable tasks. Pay special attention to deadlines or urgent keywo
             // Insert into Supabase
             const rows = extractedTasks.map((t: any) => ({
               user_id: userId,
-              title: t.title || 'Gmail Task',
-              description: t.description,
+              title: (t.title || 'Gmail Task').slice(0, 180),
+              description: (t.description || '').slice(0, 2000),
               ai_difficulty: t.ai_difficulty || 'medium',
               ai_priority_score: t.ai_priority_score || 50,
               ai_source: 'priority_engine',
               ai_generated: true
             }))
             if (rows.length > 0) {
-              await supabase.from('tasks').insert(rows)
+              // Avoid importing the same Gmail-derived task repeatedly when users click multiple times.
+              const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+              const titles = rows.map((r: any) => r.title)
+              const { data: existing } = await supabase
+                .from('tasks')
+                .select('title')
+                .eq('user_id', userId)
+                .eq('ai_source', 'priority_engine')
+                .in('title', titles)
+                .gte('created_at', cutoff)
+
+              const existingSet = new Set((existing ?? []).map((e: any) => e.title))
+              const toInsert = rows.filter((r: any) => !existingSet.has(r.title))
+              if (toInsert.length > 0) await supabase.from('tasks').insert(toInsert)
             }
           }
         }
@@ -105,36 +127,13 @@ Extract any actionable tasks. Pay special attention to deadlines or urgent keywo
 
     const topTasks = (dbTasks ?? []).slice(0, 5)
 
-    // 3. Fetch Calendar events
-    let todayEvents = []
-    if (token) {
-      try {
-        const now = new Date().toISOString()
-        const dayEnd = new Date()
-        dayEnd.setHours(23, 59, 59, 0)
-
-        const calRes = await fetch(
-          `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${dayEnd.toISOString()}&singleEvents=true&orderBy=startTime`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-        const calData = await calRes.json()
-        todayEvents = (calData.items ?? []).map((e: any) => ({
-          name: e.summary,
-          time: e.start?.dateTime ?? e.start?.date
-        }))
-      } catch (e) {
-        console.warn("Failed to fetch calendar", e)
-      }
-    }
-
     // 4. Generate AI Explanation
     let explanation = "Focus on the top priority task first."
     if (topTasks.length > 0) {
       const prompt = `You are a productivity coach ranking tasks by priority score.
-Ranked tasks: ${JSON.stringify(topTasks.map((t: any) => ({ name: t.description, score: t.priority_score })))}
-Today's calendar commitments: ${JSON.stringify(todayEvents)}
-Explain in 2-3 sentences why this order makes sense given today's schedule.
-Suggest which task to start RIGHT NOW based on the calendar. Be direct and encouraging.`
+Ranked tasks: ${JSON.stringify(topTasks.map((t: any) => ({ name: t.title || t.description, score: t.ai_priority_score ?? t.priority_score ?? 0 })))}
+Explain in 2-3 sentences why this order makes sense.
+Suggest which task to start RIGHT NOW. Be direct and encouraging.`
 
       const aiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',

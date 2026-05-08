@@ -2,30 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
-const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY
-
-async function callGroq(prompt) {
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 600 })
-  })
-  const json = await res.json()
-  
-  // Check for API errors
-  if (json.error) {
-    console.error('Groq API error:', json.error)
-    throw new Error(json.error.message || 'Groq API error')
-  }
-  
-  if (!json.choices || !json.choices[0]) {
-    console.error('Unexpected Groq response:', json)
-    throw new Error('Invalid response from Groq API')
-  }
-  
-  return json.choices[0].message.content
-}
-
 export default function OpenLoopCleaner() {
   const { user } = useAuth()
   const [loops, setLoops] = useState([])
@@ -46,16 +22,7 @@ export default function OpenLoopCleaner() {
   }, [user?.id])
 
   // Re-fetch when user switches back to this tab
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && user) {
-        supabase.from('open_loops').select('*').eq('user_id', user.id).eq('status', 'open').order('created_at', { ascending: false })
-          .then(({ data }) => { if (data) setLoops(data) })
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [user?.id])
+  // Note: do not refetch on tab focus; it feels like a reload when returning.
 
   const captureLoop = async () => {
     if (!input.trim()) return

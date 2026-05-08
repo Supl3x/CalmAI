@@ -27,7 +27,15 @@ export default function WeeklyReport() {
       supabase.functions.invoke('fetch-weekly-google-stats', { body: { userId: user.id } })
     ]).then(([tasksRes, sessionsRes, loopsRes, googleStatsRes]) => {
       setData({ tasks: tasksRes.data ?? [], sessions: sessionsRes.data ?? [], loops: loopsRes.data ?? [] })
-      setGoogleStats(googleStatsRes.data ?? { emailsSent: 0, meetingsAttended: 0, driveDocsModified: 0 })
+      if (googleStatsRes.error) {
+        console.error('Google stats error:', googleStatsRes.error)
+        setGoogleStats({ emailsSent: 0, meetingsAttended: 0, driveDocsModified: 0 })
+      } else {
+        setGoogleStats(googleStatsRes.data ?? { emailsSent: 0, meetingsAttended: 0, driveDocsModified: 0 })
+      }
+      setLoading(false)
+    }).catch(err => {
+      console.error('Failed to load weekly data:', err)
       setLoading(false)
     })
   }, [user?.id])

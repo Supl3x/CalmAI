@@ -10,7 +10,6 @@ const navItems = [
   { path: '/weekly', label: 'Weekly Report', icon: 'monitoring' },
   { path: '/open-loop', label: 'Open Loops', icon: 'psychology_alt' },
   { path: '/micro-task', label: 'Micro Tasks', icon: 'account_tree' },
-  { path: '/summary', label: 'Summary & Timer', icon: 'timer' },
 ]
 
 export default function Sidebar({ open, onClose }) {

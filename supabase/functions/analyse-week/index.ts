@@ -1,13 +1,14 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getGroqApiKey } from '../_shared/google.ts'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
 
   try {
     const { tasksCompleted, focusMinutes, loopsClosed, emailsSent, meetingsAttended, driveDocsModified } = await req.json()
-    const GROQ_KEY = Deno.env.get('GROQ_API_KEY')
+    const GROQ_KEY = getGroqApiKey()
 
     const prompt = `You are a productivity coach reviewing a user's week.
 App activity:

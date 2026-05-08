@@ -16,7 +16,6 @@ import CalmMode from './pages/CalmMode'
 import WeeklyReport from './pages/WeeklyReport'
 import OpenLoopCleaner from './pages/OpenLoopCleaner'
 import MicroTaskDecomposer from './pages/MicroTaskDecomposer'
-import SummaryTimer from './pages/SummaryTimer'
 
 export default function App() {
   return (
@@ -47,7 +46,6 @@ export default function App() {
             <Route path="/weekly" element={<WeeklyReport />} />
             <Route path="/open-loop" element={<OpenLoopCleaner />} />
             <Route path="/micro-task" element={<MicroTaskDecomposer />} />
-            <Route path="/summary" element={<SummaryTimer />} />
           </Route>
 
           {/* Fallback */}
