@@ -190,6 +190,14 @@ export default function AIDraft() {
                     <option key={e.id} value={e.id}>Re: {e.subject} ({e.from})</option>
                   ))}
                 </select>
+                {selectedThread && (
+                  <div style={{ backgroundColor: 'var(--tertiary-fixed)', border: '2px solid var(--on-background)', padding: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--primary)' }}>check_circle</span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>
+                      AI will read the original email and generate a contextual reply
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             <button className="brutalist-btn" onClick={handleGenerate} disabled={status === 'loading' || !contextInput.trim()} style={{ backgroundColor: status === 'loading' ? 'var(--outline-variant)' : 'var(--tertiary-container)', color: 'var(--on-tertiary-container)', padding: '12px', fontSize: '14px', cursor: status === 'loading' ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>

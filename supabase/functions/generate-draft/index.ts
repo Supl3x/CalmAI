@@ -34,6 +34,11 @@ serve(async (req) => {
         )
         const msg = await res.json()
         
+        // Extract subject
+        const headers = msg.payload?.headers || []
+        const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
+        const from = headers.find((h: any) => h.name === 'From')?.value || ''
+        
         function extractBody(payload: any): string {
           if (payload.mimeType === 'text/plain' && payload.body?.data) {
             return atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'))
@@ -47,9 +52,15 @@ serve(async (req) => {
           return ''
         }
 
-        emailContext = `\n\nOriginal email thread context:\n${extractBody(msg.payload).slice(0, 2000)}`
-      } catch (e) {
-        console.warn('Could not fetch email thread context')
+        const emailBody = extractBody(msg.payload).slice(0, 2000)
+        emailContext = `\n\nOriginal email you are replying to:
+From: ${from}
+Subject: ${subject}
+Body: ${emailBody}`
+        
+        console.log('Email context fetched successfully:', emailContext.substring(0, 200))
+      } catch (e: any) {
+        console.warn('Could not fetch email thread context:', e.message)
       }
     }
 
