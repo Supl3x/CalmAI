@@ -31,15 +31,18 @@ serve(async (req) => {
     try {
       const token = await getGoogleAccessToken({ supabase, userId })
 
+      // Use start-of-day to end-of-day in UTC to catch all events
       const now = new Date()
+      const dayStart = new Date(now)
+      dayStart.setUTCHours(0, 0, 0, 0)
       const dayEnd = new Date(now)
-      dayEnd.setHours(23, 59, 59, 0)
+      dayEnd.setUTCHours(23, 59, 59, 999)
 
       const calData = await fetchCalendarWithCache({
         supabase,
         userId,
         token,
-        timeMin: now.toISOString(),
+        timeMin: dayStart.toISOString(),
         timeMax: dayEnd.toISOString(),
         cacheMinutes: 10 // Cache for 10 minutes
       })

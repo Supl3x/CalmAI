@@ -31,6 +31,10 @@ serve(async (req) => {
       summary: e.summary ?? 'Untitled Event',
       start: e.start?.dateTime ?? e.start?.date,
       end: e.end?.dateTime ?? e.end?.date,
+      description: e.description ?? '',
+      location: e.location ?? '',
+      meetLink: e.hangoutLink ?? '',
+      attendees: e.attendees ?? [],
     }))
 
     return new Response(JSON.stringify({ events }), {

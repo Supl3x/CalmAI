@@ -151,15 +151,19 @@ export async function fetchGmailWithCache(params: {
     
     const data = await response.json()
     
-    // Update cache
-    await supabase
-      .from('api_cache')
-      .upsert({
-        cache_key: cacheKey,
-        user_id: userId,
-        data,
-        cached_at: new Date().toISOString()
-      }, { onConflict: 'cache_key' })
+    // Update cache (non-fatal if it fails)
+    try {
+      await supabase
+        .from('api_cache')
+        .upsert({
+          cache_key: cacheKey,
+          user_id: userId,
+          data,
+          cached_at: new Date().toISOString()
+        }, { onConflict: 'cache_key' })
+    } catch (cacheErr) {
+      console.warn('Cache write failed (non-fatal):', cacheErr)
+    }
     
     return data
   } catch (error) {
@@ -185,7 +189,9 @@ export async function fetchCalendarWithCache(params: {
 }): Promise<any> {
   const { supabase, userId, token, timeMin, timeMax, cacheMinutes = 10 } = params
   
-  const cacheKey = `calendar_${userId}_${timeMin}_${timeMax}`
+  // Normalize cache key to date-only to avoid cache misses
+  const dateStr = timeMin.split('T')[0]
+  const cacheKey = `calendar_${userId}_${dateStr}`
   const now = Date.now()
   
   // Check cache
@@ -221,15 +227,19 @@ export async function fetchCalendarWithCache(params: {
     
     const data = await response.json()
     
-    // Update cache
-    await supabase
-      .from('api_cache')
-      .upsert({
-        cache_key: cacheKey,
-        user_id: userId,
-        data,
-        cached_at: new Date().toISOString()
-      }, { onConflict: 'cache_key' })
+    // Update cache (non-fatal if it fails)
+    try {
+      await supabase
+        .from('api_cache')
+        .upsert({
+          cache_key: cacheKey,
+          user_id: userId,
+          data,
+          cached_at: new Date().toISOString()
+        }, { onConflict: 'cache_key' })
+    } catch (cacheErr) {
+      console.warn('Cache write failed (non-fatal):', cacheErr)
+    }
     
     return data
   } catch (error) {
