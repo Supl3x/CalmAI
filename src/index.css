@@ -1,0 +1,241 @@
+/* =============================================
+   CalmFlow AI — Global Design System
+   Neobrutalist Style
+   ============================================= */
+
+/* --- Reset & Base --- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Color Tokens */
+  --primary: #a900a9;
+  --primary-container: #ff00ff;
+  --on-primary: #ffffff;
+  --on-primary-container: #510051;
+  --primary-fixed: #ffd7f5;
+  --primary-fixed-dim: #ffabf3;
+  --on-primary-fixed: #380038;
+
+  --secondary: #0001c0;
+  --secondary-container: #080cff;
+  --on-secondary: #ffffff;
+  --on-secondary-container: #b6baff;
+  --secondary-fixed: #e0e0ff;
+  --secondary-fixed-dim: #bec2ff;
+  --on-secondary-fixed: #00006e;
+
+  --tertiary: #026e00;
+  --tertiary-container: #03a900;
+  --on-tertiary: #ffffff;
+  --on-tertiary-container: #013300;
+  --tertiary-fixed: #77ff61;
+  --tertiary-fixed-dim: #02e600;
+  --on-tertiary-fixed: #002200;
+
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+  --on-error: #ffffff;
+  --on-error-container: #93000a;
+
+  --background: #fff7f9;
+  --on-background: #251723;
+  --surface: #fff7f9;
+  --on-surface: #251723;
+  --surface-variant: #f4dcec;
+  --on-surface-variant: #564052;
+  --surface-container: #ffe7f7;
+  --surface-container-low: #ffeff8;
+  --surface-container-high: #fae1f2;
+  --surface-container-highest: #f4dcec;
+  --surface-container-lowest: #ffffff;
+  --surface-dim: #ebd3e4;
+  --surface-bright: #fff7f9;
+  --inverse-surface: #3b2c38;
+  --inverse-on-surface: #ffebf8;
+  --outline: #897083;
+  --outline-variant: #dcbed4;
+
+  /* Shadows */
+  --shadow-brutal: 8px 8px 0px 0px #000000;
+  --shadow-brutal-sm: 4px 4px 0px 0px #000000;
+  --shadow-brutal-hover: 4px 4px 0px 0px #000000;
+
+  /* Fonts */
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Space Mono', monospace;
+
+  /* Spacing */
+  --space-unit: 4px;
+  --space-xs: 8px;
+  --space-sm: 16px;
+  --space-md: 32px;
+  --space-lg: 64px;
+  --space-xl: 128px;
+  --space-gutter: 24px;
+  --space-margin: 32px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--background);
+  color: var(--on-background);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Material Symbols --- */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+  user-select: none;
+}
+
+/* --- Neobrutalist Core Utilities --- */
+.brutalist-shadow {
+  box-shadow: 8px 8px 0px 0px #000000;
+}
+
+.brutalist-shadow-sm {
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+.brutalist-shadow-right {
+  box-shadow: 8px 0px 0px 0px #000000;
+}
+
+.brutalist-shadow-bottom {
+  box-shadow: 0px 8px 0px 0px #000000;
+}
+
+.brutalist-card {
+  border: 4px solid var(--on-background);
+  box-shadow: 8px 8px 0px 0px #000000;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.brutalist-card:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+.brutalist-btn {
+  border: 4px solid var(--on-background);
+  box-shadow: 8px 8px 0px 0px #000000;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.brutalist-btn:hover {
+  transform: translate(4px, 4px);
+  box-shadow: 4px 4px 0px 0px #000000;
+}
+
+.brutalist-btn:active {
+  transform: translate(8px, 8px);
+  box-shadow: 0px 0px 0px 0px #000000;
+}
+
+.brutalist-btn-sm {
+  border: 2px solid var(--on-background);
+  box-shadow: 4px 4px 0px 0px #000000;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  cursor: pointer;
+}
+
+.brutalist-btn-sm:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #000000;
+}
+
+.brutalist-btn-sm:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px 0px #000000;
+}
+
+/* --- Selection --- */
+::selection {
+  background-color: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+/* --- Background Grid Dot Pattern --- */
+.bg-grid-dots {
+  background-image: radial-gradient(circle, rgba(0,0,0,0.15) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* --- Stagger Rotations --- */
+.stagger-1 { transform: rotate(-1deg); }
+.stagger-2 { transform: rotate(1.5deg); }
+.stagger-3 { transform: rotate(-0.5deg); }
+
+/* --- Torn Paper Edge --- */
+.torn-edge-top {
+  clip-path: polygon(0% 6%, 5% 2%, 10% 7%, 15% 3%, 20% 6%, 25% 2%, 30% 8%, 35% 3%, 40% 6%, 45% 2%, 50% 8%, 55% 3%, 60% 6%, 65% 2%, 70% 7%, 75% 3%, 80% 6%, 85% 2%, 90% 7%, 95% 3%, 100% 6%, 100% 100%, 0% 100%);
+}
+
+/* --- Marker Bar Effect --- */
+.marker-bar {
+  mask-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0 L100 5 L95 95 L5 100 Z' fill='black'/%3E%3C/svg%3E");
+  mask-size: 100% 100%;
+}
+
+/* --- Scrollbar Styling --- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-container);
+  border-left: 2px solid var(--on-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--on-background);
+}
+
+/* --- Input Focus --- */
+input:focus, textarea:focus {
+  outline: none;
+  background-color: var(--tertiary-fixed-dim);
+}
+
+/* --- Sidebar Transition --- */
+.sidebar-slide {
+  transition: transform 0.2s ease;
+}
+
+/* --- Page transitions --- */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.2s, transform 0.2s;
+}
