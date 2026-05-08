@@ -50,7 +50,7 @@ Suggest which task to start RIGHT NOW based on the calendar. Be direct and encou
       method: 'POST',
       headers: { Authorization: `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama3-8b-8192',
+        model: 'llama-3.1-8b-instant',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.4, max_tokens: 800
       })
