@@ -20,8 +20,8 @@ export default function Dashboard() {
     const loadDashboard = async () => {
       setLoading(true)
       const [tasksRes, loopsRes, briefingRes, sessionsRes] = await Promise.all([
-        supabase.from('tasks').select('*').eq('user_id', user.id).eq('is_complete', false).order('priority_score', { ascending: false }).limit(5),
-        supabase.from('open_loops').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_complete', false),
+        supabase.from('tasks').select('*').eq('user_id', user.id).eq('status', 'todo').order('ai_priority_score', { ascending: false }).limit(5),
+        supabase.from('open_loops').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'open'),
         supabase.from('daily_briefings').select('*').eq('user_id', user.id).eq('briefing_date', today).maybeSingle(),
         supabase.from('focus_sessions').select('duration_minutes').eq('user_id', user.id).eq('session_date', today),
       ])
@@ -37,7 +37,7 @@ export default function Dashboard() {
     const channel = supabase
       .channel('dashboard-loops')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'open_loops', filter: `user_id=eq.${user.id}` }, () => {
-        supabase.from('open_loops').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_complete', false)
+        supabase.from('open_loops').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'open')
           .then(({ count }) => setLoopCount(count ?? 0))
       })
       .subscribe()
