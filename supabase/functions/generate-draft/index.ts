@@ -66,6 +66,8 @@ Write the complete, ready-to-use ${draftType}. No explanation.`
     })
     
     const json = await aiRes.json()
+    if (json.error) throw new Error(json.error.message || 'Groq API error')
+    if (!json.choices?.[0]?.message?.content) throw new Error('Empty response from Groq')
     const content = json.choices[0].message.content
 
     return new Response(JSON.stringify({ content }), {

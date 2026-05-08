@@ -14,90 +14,83 @@ export default function AuthCallback() {
     // Set a timeout to prevent infinite hanging
     timeoutId = setTimeout(() => {
       if (!isProcessing) {
-        console.warn('Auth callback timeout - redirecting to login')
-        setError('Authentication timed out. Please try again.')
-        setTimeout(() => navigate('/login'), 2000)
+        console.warn('Auth callback timeout - redirecting to dashboard anyway')
+        navigate('/dashboard', { replace: true })
       }
     }, 10000) // 10 second timeout
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth event:', event, 'Session:', !!session)
+    const handleSession = async (session) => {
+      if (!session || isProcessing) return
       
-      if (isProcessing) return // Prevent duplicate processing
+      isProcessing = true
+      clearTimeout(timeoutId)
+      
+      const providerToken = session.provider_token
+      const providerRefreshToken = session.provider_refresh_token
+
+      console.log('Processing session. OAuth tokens:', {
+        hasAccessToken: !!providerToken,
+        hasRefreshToken: !!providerRefreshToken,
+        userId: session.user.id
+      })
+
+      if (providerToken) {
+        setStatus('Saving Google permissions...')
+        try {
+          const updatePayload = {
+            id: session.user.id,
+            google_access_token: providerToken,
+            google_token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+          }
+          // Only overwrite refresh token if Google actually returned one
+          if (providerRefreshToken) {
+            updatePayload.google_refresh_token = providerRefreshToken
+          }
+          
+          console.log('Upserting to profiles table...', updatePayload)
+          const { error: upsertError } = await supabase.from('profiles').upsert(updatePayload, { onConflict: 'id' })
+
+          if (upsertError) {
+            console.error('Failed to save tokens:', upsertError)
+            setStatus('Warning: Could not save Google tokens. Continuing...')
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          } else {
+            console.log('Google tokens saved successfully!')
+          }
+        } catch (e) {
+          console.error('Token save error:', e)
+        }
+      } else {
+        console.warn('No provider_token - Google scopes may not have been granted')
+      }
+
+      setStatus('Redirecting to dashboard...')
+      await new Promise(resolve => setTimeout(resolve, 500))
+      navigate('/dashboard', { replace: true })
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth event:', event, 'Session:', !!session, 'isProcessing:', isProcessing)
       
       if (event === 'SIGNED_IN' && session) {
-        isProcessing = true
-        clearTimeout(timeoutId)
-        
-        const providerToken = session.provider_token
-        const providerRefreshToken = session.provider_refresh_token
-
-        console.log('OAuth tokens:', {
-          hasAccessToken: !!providerToken,
-          hasRefreshToken: !!providerRefreshToken
-        })
-
-        if (providerToken) {
-          setStatus('Saving Google permissions...')
-          try {
-            const { error: upsertError } = await supabase.from('profiles').upsert({
-              id: session.user.id,
-              google_access_token: providerToken,
-              google_refresh_token: providerRefreshToken ?? null,
-              google_token_expiry: new Date(Date.now() + 3600 * 1000).toISOString(),
-            }, { onConflict: 'id' })
-
-            if (upsertError) {
-              console.error('Failed to save tokens:', upsertError)
-              setStatus('Warning: Could not save Google tokens. Continuing...')
-              await new Promise(resolve => setTimeout(resolve, 1000))
-            } else {
-              console.log('Google tokens saved successfully!')
-            }
-          } catch (e) {
-            console.error('Token save error:', e)
-          }
-        } else {
-          console.warn('No provider_token - Google scopes may not have been granted')
-        }
-
-        setStatus('Redirecting to dashboard...')
-        await new Promise(resolve => setTimeout(resolve, 500))
-        subscription.unsubscribe()
-        navigate('/dashboard', { replace: true })
+        await handleSession(session)
       } else if (event === 'SIGNED_OUT') {
         clearTimeout(timeoutId)
         navigate('/login', { replace: true })
       }
     })
 
-    // Fallback check for existing session
-    const checkSession = async () => {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      if (isProcessing) return
-      
+    // Check for existing session immediately
+    const checkExistingSession = async () => {
+      console.log('Checking for existing session...')
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        console.log('Found existing session, redirecting...')
-        clearTimeout(timeoutId)
-        navigate('/dashboard', { replace: true })
-      } else {
-        // Wait a bit more, then redirect to login if still no session
-        await new Promise(resolve => setTimeout(resolve, 3000))
-        if (!isProcessing) {
-          const { data: { session: s } } = await supabase.auth.getSession()
-          if (!s) {
-            console.warn('No session found after waiting, redirecting to login')
-            clearTimeout(timeoutId)
-            setError('No session found. Please try signing in again.')
-            setTimeout(() => navigate('/login', { replace: true }), 2000)
-          }
-        }
+        console.log('Found existing session, processing...')
+        await handleSession(session)
       }
     }
 
-    checkSession()
+    checkExistingSession()
 
     return () => {
       clearTimeout(timeoutId)

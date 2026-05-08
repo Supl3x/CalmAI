@@ -69,9 +69,8 @@ export default function DailyBriefing() {
       if (data?.content) {
         setBriefing(data.content)
         setDemoMode(!!data.content._demo)
-      } else {
-        await generateBriefing()
       }
+      // Don't auto-generate — let user click the button to avoid wasting API quota
       
       // Get last sync time
       const { data: profile } = await supabase
@@ -265,6 +264,20 @@ export default function DailyBriefing() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             <button className="brutalist-btn" onClick={generateBriefing} style={{ backgroundColor: 'var(--primary)', color: 'white', padding: 'var(--space-sm) var(--space-md)' }}>Try Again</button>
             <button className="brutalist-btn" onClick={loadDemoBriefing} disabled={generating} style={{ backgroundColor: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed)', padding: 'var(--space-sm) var(--space-md)' }}>Load demo calendar</button>
+          </div>
+        </div>
+      ) : !generating && !error && !briefing ? (
+        <div style={{ textAlign: 'center', padding: 'var(--space-xl)', border: '4px dashed var(--outline-variant)' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '64px', display: 'block', marginBottom: '16px', opacity: 0.3 }}>wb_sunny</span>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '24px', textTransform: 'uppercase', marginBottom: '12px' }}>No Briefing Yet Today</h3>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--on-surface-variant)', marginBottom: 'var(--space-md)' }}>Generate your AI daily briefing to see your calendar events and priorities.</p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="brutalist-btn" onClick={generateBriefing} style={{ backgroundColor: 'var(--primary)', color: 'white', padding: 'var(--space-sm) var(--space-md)' }}>
+              Generate Briefing
+            </button>
+            <button className="brutalist-btn" onClick={loadDemoBriefing} style={{ backgroundColor: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed)', padding: 'var(--space-sm) var(--space-md)' }}>
+              Load Demo Calendar
+            </button>
           </div>
         </div>
       ) : null}

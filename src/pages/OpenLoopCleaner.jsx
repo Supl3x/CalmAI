@@ -46,9 +46,14 @@ export default function OpenLoopCleaner() {
 
   const importEmailsAsLoops = async () => {
     setImporting('gmail')
-    const { data } = await supabase.functions.invoke('fetch-gmail-threads', {
+    const { data, error } = await supabase.functions.invoke('fetch-gmail-threads', {
       body: { userId: user.id, maxResults: 10 }
     })
+    if (error || data?.needsReauth) {
+      alert('Could not connect to Gmail. Please sign out and sign back in with Google.')
+      setImporting(null)
+      return
+    }
 
     const newLoops = (data?.emails ?? []).map(e => ({
       user_id: user.id,
@@ -64,15 +69,19 @@ export default function OpenLoopCleaner() {
 
   const importCalendarAsLoops = async () => {
     setImporting('calendar')
-    const { data } = await supabase.functions.invoke('fetch-calendar-events', {
+    const { data, error } = await supabase.functions.invoke('fetch-calendar-events', {
       body: { userId: user.id }
     })
+    if (error || data?.needsReauth) {
+      alert('Could not connect to Google Calendar. Please sign out and sign back in with Google.')
+      setImporting(null)
+      return
+    }
 
     const newLoops = (data?.events ?? []).map(e => ({
       user_id: user.id,
-      content: `Prepare for: "${e.summary}" on ${new Date(e.start).toLocaleDateString()}`,
-      category: 'Reminder',
-      urgency: 'Medium',
+      title: `Prepare for: "${e.summary}" on ${new Date(e.start).toLocaleDateString()}`,
+      source_type: 'calendar',
       scheduled_date: e.start?.split('T')[0],
     }))
 

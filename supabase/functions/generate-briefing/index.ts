@@ -89,6 +89,11 @@ serve(async (req) => {
     })
   } catch (err: any) {
     console.error('Generate briefing error:', err)
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' } })
+    const isAuthError = err.message?.includes('NO_REFRESH_TOKEN') || err.message?.includes('refresh token') || err.message?.includes('invalid_grant')
+    const status = isAuthError ? 401 : 500
+    return new Response(JSON.stringify({ error: err.message, needsReauth: isAuthError }), {
+      status,
+      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }
+    })
   }
 })

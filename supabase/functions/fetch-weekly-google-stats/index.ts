@@ -40,16 +40,26 @@ serve(async (req) => {
       driveRes.json()
     ])
 
+    // Log any API errors but don't throw — return 0 counts for failed APIs
+    if (!gmailSentRes.ok) console.warn('Gmail API error:', gmailData.error?.message)
+    if (!calendarRes.ok) console.warn('Calendar API error:', calData.error?.message)
+    if (!driveRes.ok) console.warn('Drive API error:', driveData.error?.message)
+
     const stats = {
-      emailsSent: gmailData.resultSizeEstimate ?? 0,
-      meetingsAttended: (calData.items ?? []).length,
-      driveDocsModified: (driveData.files ?? []).length,
+      emailsSent: gmailSentRes.ok ? (gmailData.messages ?? []).length : 0,
+      meetingsAttended: calendarRes.ok ? (calData.items ?? []).length : 0,
+      driveDocsModified: driveRes.ok ? (driveData.files ?? []).length : 0,
     }
 
     return new Response(JSON.stringify(stats), {
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }
     })
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' } })
+    const isAuthError = err.message?.includes('NO_REFRESH_TOKEN') || err.message?.includes('refresh token') || err.message?.includes('invalid_grant')
+    const status = isAuthError ? 401 : 500
+    return new Response(JSON.stringify({ error: err.message, needsReauth: isAuthError }), {
+      status,
+      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }
+    })
   }
 })

@@ -36,9 +36,16 @@ Return ONLY: ["insight 1", "insight 2", "insight 3", "insight 4"]`
     })
     
     const json = await aiRes.json()
-    let raw = json.choices[0].message.content
+    if (json.error) throw new Error(json.error.message || 'Groq API error')
+    let raw = json.choices?.[0]?.message?.content ?? '[]'
     raw = raw.replace(/```json?/gi, '').replace(/```/g, '').trim()
-    const insights = JSON.parse(raw)
+    let insights: string[]
+    try {
+      insights = JSON.parse(raw)
+      if (!Array.isArray(insights)) throw new Error('Not an array')
+    } catch {
+      insights = ['Keep pushing your daily task completion rate.', 'Try to hit 90+ minutes of deep work daily.', 'Clear open loops every morning for a clear mind.', 'Review your weekly metrics every Sunday.']
+    }
 
     return new Response(JSON.stringify({ insights }), {
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }

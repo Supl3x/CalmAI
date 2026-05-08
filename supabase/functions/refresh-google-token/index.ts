@@ -14,14 +14,14 @@ serve(async (req) => {
   )
 
   const { data: profile } = await supabase
-    .from('profiles').select('google_refresh_token, google_token_expiry').eq('id', userId).single()
+    .from('profiles').select('google_refresh_token, google_token_expires_at').eq('id', userId).single()
 
   if (!profile?.google_refresh_token) {
     return new Response(JSON.stringify({ error: 'No refresh token stored' }), { status: 401, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' } })
   }
 
   // Check if token is still valid (expires in >5 minutes)
-  const expiryTime = new Date(profile.google_token_expiry).getTime()
+  const expiryTime = new Date(profile.google_token_expires_at ?? 0).getTime()
   if (expiryTime - Date.now() > 5 * 60 * 1000) {
     // Token still valid — fetch and return current token
     const { data: full } = await supabase.from('profiles').select('google_access_token').eq('id', userId).single()
@@ -47,7 +47,7 @@ serve(async (req) => {
   // Save new token
   await supabase.from('profiles').update({
     google_access_token: tokens.access_token,
-    google_token_expiry: new Date(Date.now() + (tokens.expires_in * 1000)).toISOString()
+    google_token_expires_at: new Date(Date.now() + (tokens.expires_in * 1000)).toISOString()
   }).eq('id', userId)
 
   return new Response(JSON.stringify({ access_token: tokens.access_token }), { headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' } })

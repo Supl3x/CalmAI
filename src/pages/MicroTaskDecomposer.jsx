@@ -2,30 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
-const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY
-
-async function callGroq(prompt) {
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], temperature: 0.4, max_tokens: 1000 })
-  })
-  const json = await res.json()
-  
-  // Check for API errors
-  if (json.error) {
-    console.error('Groq API error:', json.error)
-    throw new Error(json.error.message || 'Groq API error')
-  }
-  
-  if (!json.choices || !json.choices[0]) {
-    console.error('Unexpected Groq response:', json)
-    throw new Error('Invalid response from Groq API')
-  }
-  
-  return json.choices[0].message.content
-}
-
 export default function MicroTaskDecomposer() {
   const { user } = useAuth()
   const [task, setTask] = useState('')
@@ -56,20 +32,16 @@ export default function MicroTaskDecomposer() {
     setSubtasks([])
     setProgress(20)
 
-    const prompt = `You are a productivity AI. Break this task into 3-8 concrete subtasks.
-Task: "${task}"
-Return ONLY valid JSON array, no explanation, no markdown:
-[{ "title": "short title", "description": "...", "ai_difficulty": "easy" | "medium" | "hard", "ai_priority_score": 1-100 }]`
-
     try {
       setProgress(50)
-      let raw = await callGroq(prompt)
+      const { data: aiData, error: aiError } = await supabase.functions.invoke('decompose-task', {
+        body: { task }
+      })
+      if (aiError) throw new Error(aiError.message || 'Edge function failed')
+      if (!aiData?.subtasks) throw new Error('No subtasks returned from AI')
+      const parsed = aiData.subtasks
       setProgress(80)
       setAiModel('groq')
-
-      // Parse JSON — strip markdown fences if present
-      raw = raw.replace(/```json?/gi, '').replace(/```/g, '').trim()
-      const parsed = JSON.parse(raw)
 
       // Save to Supabase
       const rows = parsed.map(s => ({

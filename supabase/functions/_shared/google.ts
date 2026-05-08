@@ -8,7 +8,7 @@ export async function getGoogleAccessToken(params: { supabase: any; userId: stri
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('google_access_token, google_refresh_token, google_token_expiry')
+    .select('google_access_token, google_refresh_token, google_token_expires_at')
     .eq('id', userId)
     .single()
 
@@ -18,7 +18,7 @@ export async function getGoogleAccessToken(params: { supabase: any; userId: stri
 
   const accessToken = profile?.google_access_token ?? null
   const refreshToken = profile?.google_refresh_token ?? null
-  const expiry = profile?.google_token_expiry ? new Date(profile.google_token_expiry).getTime() : 0
+  const expiry = profile?.google_token_expires_at ? new Date(profile.google_token_expires_at).getTime() : 0
 
   // If access token exists and is valid for >10 minutes (increased buffer), use it
   if (!forceRefresh && accessToken && expiry - Date.now() > 10 * 60 * 1000) {
@@ -28,7 +28,7 @@ export async function getGoogleAccessToken(params: { supabase: any; userId: stri
   if (!refreshToken) {
     // Some OAuth flows may provide access token only; allow it as a last resort
     if (accessToken) return accessToken
-    throw new Error('No Google refresh token stored. Please reconnect your Google account with offline access.')
+    throw new Error('NO_REFRESH_TOKEN: Please sign out and sign back in with Google to reconnect your account.')
   }
 
   const clientId =
@@ -73,7 +73,7 @@ export async function getGoogleAccessToken(params: { supabase: any; userId: stri
         .from('profiles')
         .update({
           google_access_token: tokens.access_token,
-          google_token_expiry: new Date(Date.now() + (Number(tokens.expires_in || 3600) * 1000)).toISOString(),
+          google_token_expires_at: new Date(Date.now() + (Number(tokens.expires_in || 3600) * 1000)).toISOString(),
         })
         .eq('id', userId)
 
@@ -94,12 +94,11 @@ export async function getGoogleAccessToken(params: { supabase: any; userId: stri
 }
 
 export function getGroqApiKey(): string {
-  return (
-    Deno.env.get('GROQ_API_KEY') ||
-    // Some deployments incorrectly set client-side env in function secrets; tolerate it.
-    Deno.env.get('VITE_GROQ_API_KEY') ||
-    ''
-  )
+  const key = Deno.env.get('GROQ_API_KEY') || ''
+  if (!key) {
+    throw new Error('GROQ_API_KEY is not set in Supabase Edge Function secrets. Go to Supabase Dashboard → Edge Functions → Secrets and add GROQ_API_KEY.')
+  }
+  return key
 }
 
 /**

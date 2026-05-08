@@ -22,20 +22,22 @@ export default function WeeklyReport() {
     cutoff.setDate(cutoff.getDate() - 7)
     const cutoffStr = cutoff.toISOString()
 
-    Promise.all([
+    Promise.allSettled([
       supabase.from('tasks').select('completed_at, ai_priority_score').eq('user_id', user.id).eq('status', 'completed').gte('completed_at', cutoffStr),
       supabase.from('focus_sessions').select('duration_minutes, session_date').eq('user_id', user.id).gte('created_at', cutoffStr),
       supabase.from('open_loops').select('created_at').eq('user_id', user.id).eq('status', 'closed').gte('created_at', cutoffStr),
       supabase.functions.invoke('fetch-weekly-google-stats', { body: { userId: user.id } })
-    ]).then(([tasksRes, sessionsRes, loopsRes, googleStatsRes]) => {
-      setData({ tasks: tasksRes.data ?? [], sessions: sessionsRes.data ?? [], loops: loopsRes.data ?? [] })
-      if (googleStatsRes.error) {
-        console.error('Google stats error:', googleStatsRes.error)
-        setGoogleStats({ emailsSent: 0, meetingsAttended: 0, driveDocsModified: 0 })
-        setGoogleStatsDemo(false)
+    ]).then(([tasksResult, sessionsResult, loopsResult, googleStatsResult]) => {
+      setData({
+        tasks: tasksResult.status === 'fulfilled' ? (tasksResult.value.data ?? []) : [],
+        sessions: sessionsResult.status === 'fulfilled' ? (sessionsResult.value.data ?? []) : [],
+        loops: loopsResult.status === 'fulfilled' ? (loopsResult.value.data ?? []) : [],
+      })
+      if (googleStatsResult.status === 'fulfilled' && !googleStatsResult.value.error) {
+        setGoogleStats(googleStatsResult.value.data ?? { emailsSent: 0, meetingsAttended: 0, driveDocsModified: 0 })
       } else {
-        setGoogleStats(googleStatsRes.data ?? { emailsSent: 0, meetingsAttended: 0, driveDocsModified: 0 })
-        setGoogleStatsDemo(false)
+        console.warn('Google stats unavailable:', googleStatsResult.reason || googleStatsResult.value?.error)
+        setGoogleStats({ emailsSent: 0, meetingsAttended: 0, driveDocsModified: 0 })
       }
       setLoading(false)
     }).catch(err => {

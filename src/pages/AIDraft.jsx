@@ -29,9 +29,14 @@ export default function AIDraft() {
   const [sending, setSending] = useState(false)
 
   const loadRecentEmails = async () => {
-    const { data } = await supabase.functions.invoke('fetch-gmail-threads', {
+    const { data, error } = await supabase.functions.invoke('fetch-gmail-threads', {
       body: { userId: user.id, maxResults: 8 }
     })
+    if (error || data?.needsReauth) {
+      console.warn('Gmail not connected:', error?.message || data?.error)
+      setRecentEmails([])
+      return
+    }
     setRecentEmails(data?.emails ?? [])
   }
 

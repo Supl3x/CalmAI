@@ -60,7 +60,7 @@ export function AuthProvider({ children }) {
           ].join(' '),
           queryParams: {
             access_type: 'offline',
-            prompt: 'select_account', // Changed from 'consent' to allow account selection without forcing consent
+            prompt: 'consent',
           },
           skipBrowserRedirect: false,
         }
