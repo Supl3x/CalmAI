@@ -2,45 +2,61 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { useGoogleToken } from '../hooks/useGoogleToken'
-
-// Groq call moved to Edge Function
+import { buildMockBriefingContent } from '../lib/mockGoogleData'
 
 export default function DailyBriefing() {
   const { user } = useAuth()
-  const { getToken } = useGoogleToken()
   const [briefing, setBriefing] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
-  const [calendarConnected, setCalendarConnected] = useState(false)
+  const [demoMode, setDemoMode] = useState(false)
+  const [lastSync, setLastSync] = useState(null)
   const today = new Date().toISOString().split('T')[0]
 
-  const generateBriefing = async (withGoogle = false) => {
+  const generateBriefing = async () => {
     setGenerating(true)
     setError(null)
     try {
-      // Get a fresh Google token from the browser ONLY if user clicked the button
-      let googleToken = null
-      if (withGoogle) {
-        try {
-          googleToken = await getToken()
-          setCalendarConnected(true)
-        } catch (e) {
-          console.warn('Google Calendar not connected, generating AI-only briefing:', e.message)
-        }
-      }
-
       const { data, error } = await supabase.functions.invoke('generate-briefing', {
-        body: { userId: user.id, googleToken }
+        body: { userId: user.id }
       })
 
       if (error) throw new Error(error.message || 'Edge function failed')
       if (!data?.content) throw new Error('No content returned from AI')
 
       setBriefing(data.content)
+      setDemoMode(!!data.content?._demo)
+      setLastSync(new Date().toISOString())
+      
+      // Update last sync time
+      await supabase
+        .from('profiles')
+        .update({ last_calendar_sync: new Date().toISOString() })
+        .eq('id', user.id)
     } catch (e) {
       console.error('Briefing error:', e)
       setError(e.message || 'Something went wrong generating your briefing.')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const loadDemoBriefing = async () => {
+    if (!user) return
+    setGenerating(true)
+    setError(null)
+    try {
+      const content = buildMockBriefingContent()
+      const { error: upErr } = await supabase.from('daily_briefings').upsert(
+        { user_id: user.id, briefing_date: today, content },
+        { onConflict: 'user_id,briefing_date' }
+      )
+      if (upErr) throw upErr
+      setBriefing(content)
+      setDemoMode(true)
+    } catch (e) {
+      console.error('Demo briefing error:', e)
+      setError(e.message || 'Could not save demo briefing.')
     } finally {
       setGenerating(false)
     }
@@ -50,17 +66,27 @@ export default function DailyBriefing() {
     if (!user) return
     const load = async () => {
       const { data } = await supabase.from('daily_briefings').select('*').eq('user_id', user.id).eq('briefing_date', today).maybeSingle()
-      if (data) setBriefing(data.content)
-      else generateBriefing()
+      if (data?.content) {
+        setBriefing(data.content)
+        setDemoMode(!!data.content._demo)
+      } else {
+        await generateBriefing()
+      }
+      
+      // Get last sync time
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('last_calendar_sync')
+        .eq('id', user.id)
+        .single()
+      setLastSync(profile?.last_calendar_sync)
     }
     load()
   }, [user?.id])
 
-  // Re-load when user switches back to this tab — only if no briefing loaded yet
-  // Note: do not refetch on tab focus. Users reported "reloads" when returning.
-
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'GOOD MORNING,' : hour < 17 ? 'GOOD AFTERNOON,' : 'GOOD EVENING,'
+  const timeSinceSync = lastSync ? Math.round((Date.now() - new Date(lastSync).getTime()) / 60000) : null
 
   return (
     <div style={{ padding: 'var(--space-md)', maxWidth: '1200px', margin: '0 auto' }}>
@@ -76,6 +102,16 @@ export default function DailyBriefing() {
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '16px', color: 'var(--on-surface-variant)', marginTop: '12px' }}>
           {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
+        {timeSinceSync !== null && (
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--primary)', marginTop: '4px' }}>
+            Last synced: {timeSinceSync < 1 ? 'Just now' : `${timeSinceSync} min ago`}
+          </p>
+        )}
+        {demoMode && (
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 700, marginTop: '12px', padding: '8px 12px', border: '3px dashed var(--secondary)', backgroundColor: 'var(--secondary-container)', color: 'var(--on-secondary-container)' }}>
+            DEMO MODE: calendar below is sample data (not your real Google Calendar). Use "Sync calendar" to fetch real data.
+          </p>
+        )}
       </section>
 
       {generating ? (
@@ -102,17 +138,12 @@ export default function DailyBriefing() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-md)' }}>
               <span className="material-symbols-outlined" style={{ color: 'var(--primary)', fontSize: '28px' }}>auto_awesome</span>
               <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '24px', textTransform: 'uppercase' }}>Daily Intelligence Brief</h3>
-              {calendarConnected && (
-                <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, backgroundColor: '#22c55e', color: 'white', padding: '2px 10px', border: '2px solid black' }}>✓ CALENDAR CONNECTED</span>
-              )}
             </div>
 
             {/* AI Insight */}
             <div style={{ backgroundColor: 'var(--primary-container)', border: '3px solid var(--on-background)', padding: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '16px', fontStyle: 'italic', lineHeight: 1.6 }}>"{briefing.motivational_insight}"</p>
             </div>
-
-
 
             {/* Priorities */}
             <h4 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', marginBottom: 'var(--space-sm)' }}>Critical Priorities</h4>
@@ -190,7 +221,7 @@ export default function DailyBriefing() {
             )}
 
             {/* Email Alert */}
-            {briefing.unread_emails > 10 && (
+            {(briefing.unread_emails ?? 0) > 10 && (
               <div style={{ backgroundColor: 'var(--secondary-container)', border: '3px solid var(--on-background)', padding: 'var(--space-sm)', marginTop: 'var(--space-md)', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '24px' }}>mail</span>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 700 }}>
@@ -215,8 +246,11 @@ export default function DailyBriefing() {
                   <span className="material-symbols-outlined">play_arrow</span>START DAY
                 </button>
               </Link>
-              <button className="brutalist-btn" onClick={() => generateBriefing(true)} style={{ width: '100%', padding: 'var(--space-sm)', backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+              <button className="brutalist-btn" onClick={generateBriefing} disabled={generating} style={{ width: '100%', padding: 'var(--space-sm)', backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
                 <span className="material-symbols-outlined">sync</span>SYNC CALENDAR
+              </button>
+              <button className="brutalist-btn" onClick={loadDemoBriefing} disabled={generating} style={{ width: '100%', padding: 'var(--space-sm)', backgroundColor: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed)', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <span className="material-symbols-outlined">science</span>LOAD DEMO CALENDAR
               </button>
             </div>
           </div>
@@ -226,9 +260,12 @@ export default function DailyBriefing() {
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '24px', textTransform: 'uppercase', color: 'var(--error)', marginBottom: '12px' }}>⚠ Briefing Failed</h3>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '15px', color: 'var(--on-error-container)', marginBottom: 'var(--space-md)' }}>{error}</p>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--on-error-container)', opacity: 0.8, marginBottom: 'var(--space-md)' }}>
-            Most likely cause: Google OAuth tokens are not stored in your profile, or the <code>VITE_GOOGLE_CLIENT_ID</code> is missing from .env.
+            Checklist: sign in with Google so <code>profiles.google_refresh_token</code> is set; in Supabase → Edge Functions → Secrets, set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>.
           </p>
-          <button className="brutalist-btn" onClick={() => generateBriefing(false)} style={{ backgroundColor: 'var(--primary)', color: 'white', padding: 'var(--space-sm) var(--space-md)' }}>Try Again</button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+            <button className="brutalist-btn" onClick={generateBriefing} style={{ backgroundColor: 'var(--primary)', color: 'white', padding: 'var(--space-sm) var(--space-md)' }}>Try Again</button>
+            <button className="brutalist-btn" onClick={loadDemoBriefing} disabled={generating} style={{ backgroundColor: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed)', padding: 'var(--space-sm) var(--space-md)' }}>Load demo calendar</button>
+          </div>
         </div>
       ) : null}
     </div>

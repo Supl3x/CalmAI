@@ -1,46 +1,48 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getGoogleAccessToken } from '../_shared/google.ts'
+import { getGoogleAccessToken, fetchCalendarWithCache } from '../_shared/google.ts'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
 
   try {
-    const { userId, googleToken } = await req.json()
+    const { userId } = await req.json()
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const today = new Date().toISOString().split('T')[0]
+    
     // 1. Fetch user's tasks from DB
     const { data: tasks } = await supabase.from('tasks')
       .select('title, description, ai_priority_score').eq('user_id', userId).eq('status', 'todo')
-      .order('ai_priority_score', { ascending: false }).limit(5)
+      .order('ai_priority_score', { ascending: false}).limit(5)
 
     // 2. Fetch open loop count
     const { count: loopCount } = await supabase.from('open_loops')
       .select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'open')
 
-    // 2.5 Fetch yesterday's analytics
+    // 3. Fetch yesterday's analytics
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     const yesterdayStr = yesterday.toISOString().split('T')[0]
     const { data: yesterdayStats } = await supabase.from('analytics').select('tasks_completed, focus_minutes').eq('user_id', userId).eq('week_start', yesterdayStr).single()
 
-    // 3. Fetch today's calendar events (ONLY Calendar; no Gmail/Drive here)
+    // 4. Fetch today's calendar events with caching
     let calendarEvents: any[] = []
     try {
-      // Use browser-provided GIS token first, fall back to stored token
-      const token = googleToken ?? await getGoogleAccessToken({ supabase, userId })
+      const token = await getGoogleAccessToken({ supabase, userId })
 
       const now = new Date()
       const dayEnd = new Date(now)
       dayEnd.setHours(23, 59, 59, 0)
 
-      const calRes = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${dayEnd.toISOString()}&singleEvents=true&orderBy=startTime`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-
-      const calData = await calRes.json()
+      const calData = await fetchCalendarWithCache({
+        supabase,
+        userId,
+        token,
+        timeMin: now.toISOString(),
+        timeMax: dayEnd.toISOString(),
+        cacheMinutes: 10 // Cache for 10 minutes
+      })
 
       calendarEvents = (calData.items ?? []).map((e: any) => ({
         id: e.id,
@@ -59,7 +61,7 @@ serve(async (req) => {
       console.warn('Google Calendar unavailable, using task data only:', e.message)
     }
 
-    // 4. Deterministic "briefing" content: calendar is the only external dependency.
+    // 5. Build briefing content
     const overload = (calendarEvents?.length ?? 0) >= 3 || (tasks?.length ?? 0) >= 8
     const content: any = {
       top_3_priorities: (tasks ?? []).map((t: any) => t.title || t.description).slice(0, 3),
@@ -86,6 +88,7 @@ serve(async (req) => {
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }
     })
   } catch (err: any) {
+    console.error('Generate briefing error:', err)
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' } })
   }
 })

@@ -2,18 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { Link } from 'react-router-dom'
-import { useGoogleToken } from '../hooks/useGoogleToken'
-
-// Groq call moved to Edge Function
+import { buildMockGmailTasks, MOCK_PRIORITY_EXPLANATION } from '../lib/mockGoogleData'
 
 export default function PriorityEngine() {
   const { user } = useAuth()
-  const { getToken } = useGoogleToken()
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(false)
   const [explanation, setExplanation] = useState('')
   const [explaining, setExplaining] = useState(false)
-  const [googleConnected, setGoogleConnected] = useState(false)
+  const [lastSync, setLastSync] = useState(null)
 
   const loadTasks = async () => {
     if (!user) return
@@ -27,6 +24,14 @@ export default function PriorityEngine() {
         .order('ai_priority_score', { ascending: false })
       if (error) throw error
       setTasks(data ?? [])
+      
+      // Get last sync time from profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('last_gmail_sync')
+        .eq('id', user.id)
+        .single()
+      setLastSync(profile?.last_gmail_sync)
     } catch (e) {
       console.error('Failed to load tasks:', e.message)
       setTasks([])
@@ -37,30 +42,44 @@ export default function PriorityEngine() {
 
   useEffect(() => { loadTasks() }, [user?.id])
 
-  // Re-fetch when user switches back to this tab
-  // Note: we intentionally do NOT re-fetch on tab focus.
-  // This app is SPA-routed and users hated "reloads" when coming back to a page.
+  const loadDemoGmailTasks = async () => {
+    if (!user) return
+    setExplaining(true)
+    try {
+      await supabase.from('tasks').delete().eq('user_id', user.id).eq('ai_source', 'demo_gmail')
+      const rows = buildMockGmailTasks(user.id)
+      const { error: insErr } = await supabase.from('tasks').insert(rows)
+      if (insErr) throw insErr
+      setExplanation(MOCK_PRIORITY_EXPLANATION)
+      await loadTasks()
+    } catch (e) {
+      console.error(e)
+      alert(e.message || 'Could not insert demo tasks.')
+    } finally {
+      setExplaining(false)
+    }
+  }
 
   const handleRerank = async () => {
     setExplaining(true)
+    setExplanation('Fetching Gmail and analyzing priorities...')
     try {
-      // Get a fresh Google token from the browser (GIS popup)
-      let googleToken = null
-      try {
-        googleToken = await getToken()
-        setGoogleConnected(true)
-      } catch (e) {
-        console.warn('Google not connected, will use tasks only:', e.message)
-      }
-
       const { data, error } = await supabase.functions.invoke('priority-explain', {
-        body: { userId: user.id, googleToken }
+        body: { userId: user.id }
       })
       if (error) throw error
-      setExplanation(data.explanation)
+      setExplanation(data.explanation || 'Tasks prioritized successfully.')
+      
+      // Update last sync time
+      await supabase
+        .from('profiles')
+        .update({ last_gmail_sync: new Date().toISOString() })
+        .eq('id', user.id)
+      
       await loadTasks()
     } catch (e) {
-      setExplanation('AI explanation unavailable right now. Check that your Google account is connected.')
+      console.error('Priority engine error:', e)
+      setExplanation(`Error: ${e.message || 'Failed to fetch Gmail data. Please ensure your Google account is connected.'}`)
     } finally {
       setExplaining(false)
     }
@@ -75,6 +94,8 @@ export default function PriorityEngine() {
     return <div style={{ padding: 'var(--space-md)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', fontSize: '16px' }}>Loading priority engine...</div>
   }
 
+  const timeSinceSync = lastSync ? Math.round((Date.now() - new Date(lastSync).getTime()) / 60000) : null
+
   return (
     <div style={{ padding: 'var(--space-md)', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
@@ -86,14 +107,20 @@ export default function PriorityEngine() {
             ? `${tasks.length} tasks ranked by AI · Includes Gmail-extracted tasks`
             : 'Click "Re-Prioritise with AI" to import from Gmail and rank all your tasks.'}
           </p>
+          {timeSinceSync !== null && (
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--primary)', marginTop: '4px' }}>
+              Last synced: {timeSinceSync < 1 ? 'Just now' : `${timeSinceSync} min ago`}
+            </p>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-          {googleConnected && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, backgroundColor: '#22c55e', color: 'white', padding: '2px 10px', border: '2px solid black' }}>✓ GMAIL CONNECTED</span>
-          )}
           <button className="brutalist-btn" onClick={handleRerank} disabled={explaining} style={{ backgroundColor: 'var(--secondary)', color: 'var(--secondary-fixed)', padding: 'var(--space-sm) var(--space-md)', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: explaining ? 'not-allowed' : 'pointer' }}>
             <span className="material-symbols-outlined">{explaining ? 'hourglass_empty' : 'psychology'}</span>
             {explaining ? 'FETCHING GMAIL & ANALYZING...' : 'RE-PRIORITISE WITH AI'}
+          </button>
+          <button className="brutalist-btn" type="button" onClick={loadDemoGmailTasks} disabled={explaining} style={{ backgroundColor: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed)', padding: 'var(--space-sm) var(--space-md)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', cursor: explaining ? 'not-allowed' : 'pointer' }}>
+            <span className="material-symbols-outlined">science</span>
+            LOAD DEMO GMAIL TASKS
           </button>
         </div>
       </section>

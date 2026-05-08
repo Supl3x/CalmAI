@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { buildMockWeeklyGoogleStats } from '../lib/mockGoogleData'
 
 // Groq call moved to Edge Function
 
@@ -13,6 +14,7 @@ export default function WeeklyReport() {
   const [insights, setInsights] = useState([])
   const [loadingInsights, setLoadingInsights] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [googleStatsDemo, setGoogleStatsDemo] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -30,8 +32,10 @@ export default function WeeklyReport() {
       if (googleStatsRes.error) {
         console.error('Google stats error:', googleStatsRes.error)
         setGoogleStats({ emailsSent: 0, meetingsAttended: 0, driveDocsModified: 0 })
+        setGoogleStatsDemo(false)
       } else {
         setGoogleStats(googleStatsRes.data ?? { emailsSent: 0, meetingsAttended: 0, driveDocsModified: 0 })
+        setGoogleStatsDemo(false)
       }
       setLoading(false)
     }).catch(err => {
@@ -83,6 +87,12 @@ export default function WeeklyReport() {
 
   const scoreColor = productivityScore >= 80 ? 'var(--tertiary-fixed)' : productivityScore >= 50 ? 'var(--primary-fixed)' : 'var(--primary-container)'
 
+  const applyDemoGoogleStats = () => {
+    const s = buildMockWeeklyGoogleStats()
+    setGoogleStats({ emailsSent: s.emailsSent, meetingsAttended: s.meetingsAttended, driveDocsModified: s.driveDocsModified })
+    setGoogleStatsDemo(true)
+  }
+
   return (
     <div style={{ padding: 'var(--space-md)', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
@@ -91,11 +101,17 @@ export default function WeeklyReport() {
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'clamp(32px,6vw,72px)', textTransform: 'uppercase', lineHeight: 0.95 }}>Weekly<br />Analytics</h1>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '16px', color: 'var(--primary)', marginTop: '8px', borderLeft: '6px solid var(--primary)', paddingLeft: '8px' }}>
             Last 7 Days · {loading ? 'Loading...' : `${tasksCompleted} tasks · ${Math.round(totalFocusMinutes / 60)}h focus`}
+            {googleStatsDemo && (
+              <span style={{ display: 'block', marginTop: '6px', fontSize: '12px', color: 'var(--secondary)' }}>Google row: demo numbers (not from your account).</span>
+            )}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <button className="brutalist-btn" onClick={handleGetInsights} disabled={loadingInsights || loading} style={{ backgroundColor: 'var(--tertiary-fixed)', padding: '12px 24px', fontSize: '14px', cursor: loadingInsights ? 'wait' : 'pointer', opacity: loading ? 0.5 : 1 }}>
             {loadingInsights ? '🤖 Analyzing...' : '🤖 Get AI Insights'}
+          </button>
+          <button type="button" className="brutalist-btn" onClick={applyDemoGoogleStats} disabled={loading} style={{ backgroundColor: 'var(--secondary-container)', padding: '12px 24px', fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}>
+            Demo Google stats
           </button>
         </div>
       </div>

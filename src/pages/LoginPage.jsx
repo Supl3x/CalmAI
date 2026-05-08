@@ -1,9 +1,17 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function LoginPage() {
-  const { signInWithGoogle, loading } = useAuth()
+  const { signInWithGoogle, loading, user } = useAuth()
+  const navigate = useNavigate()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
 
   return (
     <div style={{

@@ -44,35 +44,59 @@ export function AuthProvider({ children }) {
   }, [])
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/auth/callback',
-        scopes: [
-          'https://www.googleapis.com/auth/gmail.readonly',
-          'https://www.googleapis.com/auth/gmail.compose',
-          'https://www.googleapis.com/auth/calendar.readonly',
-          'https://www.googleapis.com/auth/calendar.events',
-          'https://www.googleapis.com/auth/drive.readonly',
-          'https://www.googleapis.com/auth/drive.file',
-        ].join(' '),
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/auth/callback',
+          scopes: [
+            'https://www.googleapis.com/auth/gmail.readonly',
+            'https://www.googleapis.com/auth/gmail.compose',
+            'https://www.googleapis.com/auth/calendar.readonly',
+            'https://www.googleapis.com/auth/calendar.events',
+            'https://www.googleapis.com/auth/drive.readonly',
+            'https://www.googleapis.com/auth/drive.file',
+          ].join(' '),
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account', // Changed from 'consent' to allow account selection without forcing consent
+          },
+          skipBrowserRedirect: false,
         }
+      })
+      if (error) {
+        console.error('Login error:', error.message)
+        setLoading(false)
       }
-    })
-    if (error) console.error('Login error:', error.message)
+    } catch (e) {
+      console.error('Sign in failed:', e)
+      setLoading(false)
+    }
   }
 
   const signOut = async () => {
+    setLoading(true)
     try {
-      await supabase.auth.signOut()
-    } catch (e) {
-      console.warn("Error during Supabase sign out:", e)
-    } finally {
+      // Clear local state first
       setUser(null)
       setProfile(null)
+      
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut({ scope: 'local' })
+      if (error) {
+        console.warn("Supabase sign out error:", error)
+      }
+      
+      // Clear any cached data
+      localStorage.clear()
+      sessionStorage.clear()
+      
+      // Force redirect to login
+      window.location.href = '/login'
+    } catch (e) {
+      console.error("Error during sign out:", e)
+      // Force redirect even on error
       window.location.href = '/login'
     }
   }
