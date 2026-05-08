@@ -2,22 +2,34 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { useGoogleToken } from '../hooks/useGoogleToken'
 
 // Groq call moved to Edge Function
 
 export default function DailyBriefing() {
   const { user } = useAuth()
+  const { getToken } = useGoogleToken()
   const [briefing, setBriefing] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
+  const [calendarConnected, setCalendarConnected] = useState(false)
   const today = new Date().toISOString().split('T')[0]
 
   const generateBriefing = async () => {
     setGenerating(true)
     setError(null)
     try {
+      // Get a fresh Google token from the browser (GIS popup - no backend needed)
+      let googleToken = null
+      try {
+        googleToken = await getToken()
+        setCalendarConnected(true)
+      } catch (e) {
+        console.warn('Google Calendar not connected, generating AI-only briefing:', e.message)
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-briefing', {
-        body: { userId: user.id }
+        body: { userId: user.id, googleToken }
       })
 
       if (error) throw new Error(error.message || 'Edge function failed')

@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { Link } from 'react-router-dom'
+import { useGoogleToken } from '../hooks/useGoogleToken'
 
 // Groq call moved to Edge Function
 
 export default function PriorityEngine() {
   const { user } = useAuth()
+  const { getToken } = useGoogleToken()
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(false)
   const [explanation, setExplanation] = useState('')
   const [explaining, setExplaining] = useState(false)
+  const [googleConnected, setGoogleConnected] = useState(false)
 
   const loadTasks = async () => {
     if (!user) return
@@ -46,12 +49,20 @@ export default function PriorityEngine() {
   const handleRerank = async () => {
     setExplaining(true)
     try {
+      // Get a fresh Google token from the browser (GIS popup)
+      let googleToken = null
+      try {
+        googleToken = await getToken()
+        setGoogleConnected(true)
+      } catch (e) {
+        console.warn('Google not connected, will use tasks only:', e.message)
+      }
+
       const { data, error } = await supabase.functions.invoke('priority-explain', {
-        body: { userId: user.id }
+        body: { userId: user.id, googleToken }
       })
       if (error) throw error
       setExplanation(data.explanation)
-      // Reload tasks from DB so newly extracted Gmail tasks appear
       await loadTasks()
     } catch (e) {
       setExplanation('AI explanation unavailable right now. Check that your Google account is connected.')
@@ -81,10 +92,15 @@ export default function PriorityEngine() {
             : 'Click "Re-Prioritise with AI" to import from Gmail and rank all your tasks.'}
           </p>
         </div>
-        <button className="brutalist-btn" onClick={handleRerank} disabled={explaining} style={{ backgroundColor: 'var(--secondary)', color: 'var(--secondary-fixed)', padding: 'var(--space-sm) var(--space-md)', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: explaining ? 'not-allowed' : 'pointer' }}>
-          <span className="material-symbols-outlined">{explaining ? 'hourglass_empty' : 'psychology'}</span>
-          {explaining ? 'FETCHING GMAIL & ANALYZING...' : 'RE-PRIORITISE WITH AI'}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+          {googleConnected && (
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, backgroundColor: '#22c55e', color: 'white', padding: '2px 10px', border: '2px solid black' }}>✓ GMAIL CONNECTED</span>
+          )}
+          <button className="brutalist-btn" onClick={handleRerank} disabled={explaining} style={{ backgroundColor: 'var(--secondary)', color: 'var(--secondary-fixed)', padding: 'var(--space-sm) var(--space-md)', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: explaining ? 'not-allowed' : 'pointer' }}>
+            <span className="material-symbols-outlined">{explaining ? 'hourglass_empty' : 'psychology'}</span>
+            {explaining ? 'FETCHING GMAIL & ANALYZING...' : 'RE-PRIORITISE WITH AI'}
+          </button>
+        </div>
       </section>
 
       {/* AI Explanation */}

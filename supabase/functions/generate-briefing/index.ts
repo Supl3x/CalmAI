@@ -20,7 +20,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
 
   try {
-    const { userId } = await req.json()
+    const { userId, googleToken } = await req.json()
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const today = new Date().toISOString().split('T')[0]
     const GROQ_KEY = Deno.env.get('GROQ_API_KEY')
@@ -44,7 +44,8 @@ serve(async (req) => {
     let calendarEvents: any[] = []
     let unreadEmailCount = 0
     try {
-      const token = await getGoogleToken(userId, supabase)
+      // Use browser-provided GIS token first, fall back to stored token
+      const token = googleToken ?? await getGoogleToken(userId, supabase)
 
       const now = new Date()
       const dayEnd = new Date(now)

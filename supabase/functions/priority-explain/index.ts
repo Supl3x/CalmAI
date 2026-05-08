@@ -20,15 +20,18 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
 
   try {
-    const { userId } = await req.json()
+    const { userId, googleToken } = await req.json()
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const GROQ_KEY = Deno.env.get('GROQ_API_KEY')
 
-    let token = null
-    try {
-      token = await getGoogleToken(userId, supabase)
-    } catch (e) {
-      console.warn("Could not get Google token, skipping Gmail parsing", e)
+    // Use browser-provided token (GIS flow) or fall back to stored token
+    let token: string | null = googleToken ?? null
+    if (!token) {
+      try {
+        token = await getGoogleToken(userId, supabase)
+      } catch (e) {
+        console.warn('Could not get stored Google token, skipping Gmail parsing', e)
+      }
     }
 
     // 1. Fetch unread emails from Gmail
