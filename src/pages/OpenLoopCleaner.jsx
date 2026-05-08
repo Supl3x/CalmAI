@@ -8,9 +8,21 @@ async function callGroq(prompt) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 600 })
+    body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 600 })
   })
   const json = await res.json()
+  
+  // Check for API errors
+  if (json.error) {
+    console.error('Groq API error:', json.error)
+    throw new Error(json.error.message || 'Groq API error')
+  }
+  
+  if (!json.choices || !json.choices[0]) {
+    console.error('Unexpected Groq response:', json)
+    throw new Error('Invalid response from Groq API')
+  }
+  
   return json.choices[0].message.content
 }
 
