@@ -15,7 +15,7 @@ export default function PriorityEngine() {
   const loadTasks = async () => {
     if (!user) return
     setLoading(true)
-    const { data } = await supabase.from('tasks').select('*').eq('user_id', user.id).eq('is_complete', false).order('priority_score', { ascending: false })
+    const { data } = await supabase.from('tasks').select('*').eq('user_id', user.id).eq('status', 'todo').order('ai_priority_score', { ascending: false })
     setTasks(data ?? [])
     setLoading(false)
   }
@@ -27,11 +27,10 @@ export default function PriorityEngine() {
     setExplaining(true)
     try {
       const { data, error } = await supabase.functions.invoke('priority-explain', {
-        body: { userId: user.id }
+        body: { userId: user.id, tasks: tasks.slice(0, 5) }
       })
       if (error) throw error
       setExplanation(data.explanation)
-      if (data.tasks) setTasks(data.tasks)
     } catch (e) {
       setExplanation('AI explanation unavailable right now.')
     } finally {
@@ -41,7 +40,7 @@ export default function PriorityEngine() {
 
   const completeTask = async (id) => {
     setTasks(prev => prev.filter(t => t.id !== id))
-    await supabase.from('tasks').update({ is_complete: true, completed_at: new Date().toISOString() }).eq('id', id)
+    await supabase.from('tasks').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', id)
   }
 
   if (loading) {
@@ -58,9 +57,9 @@ export default function PriorityEngine() {
             {tasks.length > 0 ? `${tasks.length} tasks ranked by AI score formula: (urgency × 2) + difficulty - resistance` : 'No tasks yet. Decompose a task to get started.'}
           </p>
         </div>
-        <button className="brutalist-btn" onClick={handleRerank} disabled={explaining} style={{ backgroundColor: 'var(--secondary)', color: 'var(--secondary-fixed)', padding: 'var(--space-sm) var(--space-md)', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: explaining ? 'not-allowed' : 'pointer' }}>
+        <button className="brutalist-btn" onClick={handleRerank} disabled={explaining || !tasks.length} style={{ backgroundColor: 'var(--secondary)', color: 'var(--secondary-fixed)', padding: 'var(--space-sm) var(--space-md)', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: tasks.length ? 'pointer' : 'not-allowed', opacity: tasks.length ? 1 : 0.5 }}>
           <span className="material-symbols-outlined">{explaining ? 'hourglass_empty' : 'psychology'}</span>
-          {explaining ? 'FETCHING & ANALYZING...' : 'RE-PRIORITISE WITH AI'}
+          {explaining ? 'ANALYZING...' : 'AI EXPLAIN'}
         </button>
       </section>
 
@@ -86,13 +85,7 @@ export default function PriorityEngine() {
           {/* Priority #1 */}
           {tasks[0] && (
             <div style={{ gridColumn: '1 / -1' }}>
-              <div style={{ backgroundColor: '#FF4500', border: '8px solid black', boxShadow: '8px 8px 0px 0px #000', padding: 'var(--space-md)', position: 'relative', transform: 'rotate(-1deg)', animation: 'glow 2s infinite alternate' }}>
-                <style>{`
-                  @keyframes glow {
-                    from { box-shadow: 8px 8px 0px 0px #000, 0 0 10px #FF4500, 0 0 20px #FF4500; }
-                    to { box-shadow: 8px 8px 0px 0px #000, 0 0 20px #FF4500, 0 0 30px #FF8C00; }
-                  }
-                `}</style>
+              <div style={{ backgroundColor: '#FF4500', border: '8px solid black', boxShadow: '8px 8px 0px 0px #000', padding: 'var(--space-md)', position: 'relative', transform: 'rotate(-1deg)' }}>
                 <div style={{ position: 'absolute', top: '-20px', right: '-20px', backgroundColor: '#FACC15', border: '4px solid black', padding: '4px 16px', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '18px', boxShadow: '4px 4px 0px 0px #000', zIndex: 10 }}>
                   #1 PRIORITY
                 </div>
@@ -111,24 +104,28 @@ export default function PriorityEngine() {
           )}
 
           {/* Tasks #2+ */}
-          {tasks.slice(1).map((task, i) => (
+          {tasks.slice(1).map((task, i) => {
+            const difficulty = task.ai_difficulty === 'easy' ? 3 : task.ai_difficulty === 'medium' ? 6 : 9
+            const resistance = Math.round(task.ai_priority_score / 10)
+            const urgency = task.priority === 'urgent' ? 9 : task.priority === 'high' ? 7 : task.priority === 'medium' ? 5 : 3
+            return (
             <div key={task.id} className="brutalist-card" style={{ backgroundColor: 'var(--surface)', padding: 'var(--space-md)', position: 'relative' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, border: '2px solid var(--on-background)', padding: '2px 8px', textTransform: 'uppercase' }}>#{i + 2}</span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, border: '2px solid var(--on-background)', padding: '2px 8px', backgroundColor: 'var(--secondary-fixed)', textTransform: 'uppercase' }}>Score: {task.priority_score}</span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, border: '2px solid var(--on-background)', padding: '2px 8px', backgroundColor: 'var(--secondary-fixed)', textTransform: 'uppercase' }}>Score: {task.ai_priority_score}</span>
                 </div>
                 <button onClick={() => completeTask(task.id)} style={{ background: 'none', border: '2px solid var(--on-background)', cursor: 'pointer', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Done</button>
               </div>
-              <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '18px', marginBottom: '8px', textTransform: 'uppercase' }}>{task.description}</h4>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--on-surface-variant)', marginBottom: 'var(--space-sm)' }}>{task.parent_task}</p>
+              <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '18px', marginBottom: '8px', textTransform: 'uppercase' }}>{task.title}</h4>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--on-surface-variant)', marginBottom: 'var(--space-sm)' }}>{task.description}</p>
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                {[{ l: 'D', v: task.difficulty }, { l: 'R', v: task.resistance }, { l: 'U', v: task.urgency }].map(s => (
+                {[{ l: 'D', v: difficulty }, { l: 'R', v: resistance }, { l: 'U', v: urgency }].map(s => (
                   <span key={s.l} style={{ border: '2px solid var(--on-background)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, backgroundColor: 'var(--surface-variant)' }}>{s.l}: {s.v}/10</span>
                 ))}
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
 

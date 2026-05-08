@@ -35,7 +35,7 @@ export default function OpenLoopCleaner() {
 
   useEffect(() => {
     if (!user) return
-    supabase.from('open_loops').select('*').eq('user_id', user.id).eq('is_complete', false).order('created_at', { ascending: false })
+    supabase.from('open_loops').select('*').eq('user_id', user.id).eq('status', 'open').order('created_at', { ascending: false })
       .then(({ data }) => { setLoops(data ?? []); setLoading(false) })
 
     const channel = supabase.channel('loops-' + user.id)
@@ -49,11 +49,16 @@ export default function OpenLoopCleaner() {
     if (!input.trim()) return
     const content = input.trim()
     const tempId = 'temp-' + Date.now()
-    const tempLoop = { id: tempId, content, category: 'Classifying...', urgency: 'Medium', created_at: new Date().toISOString() }
+    const tempLoop = { id: tempId, title: content, category: 'Classifying...', urgency: 'Medium', created_at: new Date().toISOString() }
     setLoops(prev => [tempLoop, ...prev])
     setInput('')
 
-    const { data, error } = await supabase.from('open_loops').insert({ user_id: user.id, content }).select().single()
+    const { data, error } = await supabase.from('open_loops').insert({ 
+      user_id: user.id, 
+      title: content,
+      source_type: 'manual',
+      status: 'open'
+    }).select().single()
     if (error) { setLoops(prev => prev.filter(l => l.id !== tempId)); return }
     setLoops(prev => prev.map(l => l.id === tempId ? data : l))
 
@@ -69,7 +74,12 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
       let raw = await callGroq(prompt)
       raw = raw.replace(/```json?/gi, '').replace(/```/g, '').trim()
       const { category, urgency } = JSON.parse(raw)
-      await supabase.from('open_loops').update({ category, urgency }).eq('id', loopId)
+      // Store category in description field since schema doesn't have category
+      await supabase.from('open_loops').update({ 
+        description: `Category: ${category} | Urgency: ${urgency}`,
+        ai_detected: true,
+        ai_confidence_score: 80
+      }).eq('id', loopId)
     } catch (e) {
       console.warn('Classification failed:', e)
     }
@@ -83,9 +93,9 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
 
     const newLoops = (data?.emails ?? []).map(e => ({
       user_id: user.id,
-      content: `Reply to email: "${e.subject}" from ${e.from}`,
-      category: 'Uncategorised',
-      urgency: 'Medium',
+      title: `Reply to email: "${e.subject}" from ${e.from}`,
+      source_type: 'email',
+      status: 'open',
     }))
 
     if (newLoops.length > 0) {
@@ -102,10 +112,9 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
 
     const newLoops = (data?.events ?? []).map(e => ({
       user_id: user.id,
-      content: `Prepare for: "${e.summary}" on ${new Date(e.start).toLocaleDateString()}`,
-      category: 'Reminder',
-      urgency: 'Medium',
-      scheduled_date: e.start?.split('T')[0],
+      title: `Prepare for: "${e.summary}" on ${new Date(e.start).toLocaleDateString()}`,
+      source_type: 'calendar',
+      status: 'open',
     }))
 
     if (newLoops.length > 0) {
@@ -116,14 +125,18 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
 
   const completeLoop = async (id) => {
     setLoops(prev => prev.filter(l => l.id !== id))
-    await supabase.from('open_loops').update({ is_complete: true }).eq('id', id)
+    await supabase.from('open_loops').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', id)
   }
 
   const scheduleLoop = async (id, days) => {
     const d = new Date()
     d.setDate(d.getDate() + days)
     const date = d.toISOString().split('T')[0]
-    await supabase.from('open_loops').update({ scheduled_date: date }).eq('id', id)
+    // Store scheduled date in description
+    await supabase.from('open_loops').update({ 
+      description: `Scheduled for: ${date}`,
+      status: 'in_progress'
+    }).eq('id', id)
     setLoops(prev => prev.map(l => l.id === id ? { ...l, scheduled_date: date } : l))
   }
 
@@ -219,7 +232,7 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
                   <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--tertiary)' }}>check_circle</span>
                 </button>
               </div>
-              <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', marginBottom: 'var(--space-sm)', lineHeight: 1.4 }}>"{loop.content}"</p>
+              <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', marginBottom: 'var(--space-sm)', lineHeight: 1.4 }}>"{loop.title}"</p>
               {loop.scheduled_date ? (
                 <div style={{ fontSize: '11px', fontFamily: 'var(--font-body)', fontWeight: 700, color: 'var(--secondary)', textTransform: 'uppercase' }}>📅 Scheduled: {loop.scheduled_date}</div>
               ) : (

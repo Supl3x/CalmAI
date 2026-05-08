@@ -71,14 +71,18 @@ Return ONLY valid JSON array, no explanation, no markdown:
       raw = raw.replace(/```json?/gi, '').replace(/```/g, '').trim()
       const parsed = JSON.parse(raw)
 
-      // Save to Supabase
+      // Save to Supabase - map to correct schema
       const rows = parsed.map(s => ({
         user_id: user.id,
-        parent_task: task,
-        description: s.description,
-        difficulty: s.difficulty ?? 5,
-        resistance: s.resistance ?? 5,
-        urgency: s.urgency ?? 5,
+        title: s.description,
+        description: `Part of: ${task}`,
+        ai_generated: true,
+        ai_source: 'decomposer',
+        ai_parent_prompt: task,
+        ai_difficulty: s.difficulty <= 3 ? 'easy' : s.difficulty <= 7 ? 'medium' : 'hard',
+        priority: s.urgency >= 8 ? 'urgent' : s.urgency >= 6 ? 'high' : s.urgency >= 4 ? 'medium' : 'low',
+        ai_priority_score: Math.round(((s.difficulty + s.resistance + s.urgency) / 3) * 10),
+        status: 'todo',
       }))
       const { data, error: dbError } = await supabase.from('tasks').insert(rows).select()
       if (dbError) throw dbError
@@ -96,9 +100,10 @@ Return ONLY valid JSON array, no explanation, no markdown:
 
   const toggleDone = async (id) => {
     const task = subtasks.find(t => t.id === id)
-    const newVal = !task.is_complete
-    setSubtasks(prev => prev.map(t => t.id === id ? { ...t, is_complete: newVal } : t))
-    await supabase.from('tasks').update({ is_complete: newVal, completed_at: newVal ? new Date().toISOString() : null }).eq('id', id)
+    const newStatus = task.status === 'completed' ? 'todo' : 'completed'
+    const completedAt = newStatus === 'completed' ? new Date().toISOString() : null
+    setSubtasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus, completed_at: completedAt } : t))
+    await supabase.from('tasks').update({ status: newStatus, completed_at: completedAt }).eq('id', id)
   }
 
   const deleteTask = async (id) => {
@@ -109,7 +114,7 @@ Return ONLY valid JSON array, no explanation, no markdown:
   // Load recent decompositions
   useEffect(() => {
     if (!user) return
-    supabase.from('tasks').select('*').eq('user_id', user.id).eq('is_complete', false).order('created_at', { ascending: false }).limit(8)
+    supabase.from('tasks').select('*').eq('user_id', user.id).eq('status', 'todo').order('created_at', { ascending: false }).limit(8)
       .then(({ data }) => { if (data?.length) setSubtasks(data) })
   }, [user?.id])
 
@@ -212,26 +217,29 @@ Return ONLY valid JSON array, no explanation, no markdown:
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 'var(--space-gutter)' }}>
             {subtasks.map((st, i) => {
               const colors = ['white', 'var(--tertiary-fixed)', 'var(--primary-fixed)', 'white']
+              const isComplete = st.status === 'completed'
+              const difficulty = st.ai_difficulty === 'easy' ? 3 : st.ai_difficulty === 'medium' ? 6 : 9
+              const resistance = Math.round(st.ai_priority_score / 10) // Approximate from priority score
               return (
-                <div key={st.id} className="brutalist-card" style={{ backgroundColor: colors[i % colors.length], padding: 'var(--space-md)', opacity: st.is_complete ? 0.6 : 1, transition: 'opacity 0.3s' }}>
+                <div key={st.id} className="brutalist-card" style={{ backgroundColor: colors[i % colors.length], padding: 'var(--space-md)', opacity: isComplete ? 0.6 : 1, transition: 'opacity 0.3s' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <span style={{ backgroundColor: 'var(--on-background)', color: 'white', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, textDecoration: st.is_complete ? 'line-through' : 'none' }}>TASK_{String(i + 1).padStart(2, '0')}</span>
+                    <span style={{ backgroundColor: 'var(--on-background)', color: 'white', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, textDecoration: isComplete ? 'line-through' : 'none' }}>TASK_{String(i + 1).padStart(2, '0')}</span>
                     <button onClick={() => deleteTask(st.id)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--outline)' }}>delete</span>
                     </button>
                   </div>
-                  <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '16px', textTransform: 'uppercase', marginBottom: '8px', textDecoration: st.is_complete ? 'line-through' : 'none' }}>{st.description}</h4>
+                  <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '16px', textTransform: 'uppercase', marginBottom: '8px', textDecoration: isComplete ? 'line-through' : 'none' }}>{st.title}</h4>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
-                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--surface-variant)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>D: {st.difficulty}/10</span>
-                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--surface-variant)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>R: {st.resistance}/10</span>
-                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--secondary-fixed)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>Score: {st.priority_score}</span>
+                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--surface-variant)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>D: {difficulty}/10</span>
+                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--surface-variant)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>R: {resistance}/10</span>
+                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--secondary-fixed)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>Score: {st.ai_priority_score}</span>
                   </div>
                   <div style={{ borderTop: '4px solid var(--on-background)', paddingTop: '8px', display: 'flex', justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => toggleDone(st.id)}
-                      style={{ border: '2px solid var(--on-background)', backgroundColor: st.is_complete ? 'var(--tertiary-fixed)' : 'white', padding: '4px 12px', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' }}
+                      style={{ border: '2px solid var(--on-background)', backgroundColor: isComplete ? 'var(--tertiary-fixed)' : 'white', padding: '4px 12px', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' }}
                     >
-                      {st.is_complete ? '✓ Done' : 'Mark Done'}
+                      {isComplete ? '✓ Done' : 'Mark Done'}
                     </button>
                   </div>
                 </div>
@@ -247,7 +255,7 @@ Return ONLY valid JSON array, no explanation, no markdown:
           <div>
             <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'clamp(20px,4vw,36px)', textTransform: 'uppercase', color: 'var(--primary-fixed)', marginBottom: '8px' }}>READY TO EXECUTE?</h2>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: '16px', opacity: 0.8 }}>
-              {subtasks.filter(t => !t.is_complete).length} tasks remaining · {subtasks.filter(t => t.is_complete).length} completed
+              {subtasks.filter(t => t.status !== 'completed').length} tasks remaining · {subtasks.filter(t => t.status === 'completed').length} completed
             </p>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
