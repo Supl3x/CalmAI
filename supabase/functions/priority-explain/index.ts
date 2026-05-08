@@ -141,6 +141,7 @@ Suggest which task to start RIGHT NOW based on the calendar. Be direct and encou
           model: 'llama-3.1-8b-instant',
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.4, max_tokens: 800
+        })
       })
       
       const json = await aiRes.json()
