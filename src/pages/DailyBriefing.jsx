@@ -15,17 +15,19 @@ export default function DailyBriefing() {
   const [calendarConnected, setCalendarConnected] = useState(false)
   const today = new Date().toISOString().split('T')[0]
 
-  const generateBriefing = async () => {
+  const generateBriefing = async (withGoogle = false) => {
     setGenerating(true)
     setError(null)
     try {
-      // Get a fresh Google token from the browser (GIS popup - no backend needed)
+      // Get a fresh Google token from the browser ONLY if user clicked the button
       let googleToken = null
-      try {
-        googleToken = await getToken()
-        setCalendarConnected(true)
-      } catch (e) {
-        console.warn('Google Calendar not connected, generating AI-only briefing:', e.message)
+      if (withGoogle) {
+        try {
+          googleToken = await getToken()
+          setCalendarConnected(true)
+        } catch (e) {
+          console.warn('Google Calendar not connected, generating AI-only briefing:', e.message)
+        }
       }
 
       const { data, error } = await supabase.functions.invoke('generate-briefing', {
@@ -106,6 +108,9 @@ export default function DailyBriefing() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-md)' }}>
               <span className="material-symbols-outlined" style={{ color: 'var(--primary)', fontSize: '28px' }}>auto_awesome</span>
               <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '24px', textTransform: 'uppercase' }}>Daily Intelligence Brief</h3>
+              {calendarConnected && (
+                <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, backgroundColor: '#22c55e', color: 'white', padding: '2px 10px', border: '2px solid black' }}>✓ CALENDAR CONNECTED</span>
+              )}
             </div>
 
             {/* AI Insight */}
@@ -216,8 +221,8 @@ export default function DailyBriefing() {
                   <span className="material-symbols-outlined">play_arrow</span>START DAY
                 </button>
               </Link>
-              <button className="brutalist-btn" onClick={generateBriefing} style={{ width: '100%', padding: 'var(--space-sm)', backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                <span className="material-symbols-outlined">refresh</span>REGENERATE
+              <button className="brutalist-btn" onClick={() => generateBriefing(true)} style={{ width: '100%', padding: 'var(--space-sm)', backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                <span className="material-symbols-outlined">sync</span>SYNC CALENDAR
               </button>
             </div>
           </div>
@@ -227,9 +232,9 @@ export default function DailyBriefing() {
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '24px', textTransform: 'uppercase', color: 'var(--error)', marginBottom: '12px' }}>⚠ Briefing Failed</h3>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '15px', color: 'var(--on-error-container)', marginBottom: 'var(--space-md)' }}>{error}</p>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--on-error-container)', opacity: 0.8, marginBottom: 'var(--space-md)' }}>
-            Most likely cause: Google OAuth tokens are not stored in your profile, or the <code>GOOGLE_CLIENT_ID</code> / <code>GOOGLE_CLIENT_SECRET</code> secrets are not set in your Supabase Edge Function secrets dashboard.
+            Most likely cause: Google OAuth tokens are not stored in your profile, or the <code>VITE_GOOGLE_CLIENT_ID</code> is missing from .env.
           </p>
-          <button className="brutalist-btn" onClick={generateBriefing} style={{ backgroundColor: 'var(--primary)', color: 'white', padding: 'var(--space-sm) var(--space-md)' }}>Try Again</button>
+          <button className="brutalist-btn" onClick={() => generateBriefing(false)} style={{ backgroundColor: 'var(--primary)', color: 'white', padding: 'var(--space-sm) var(--space-md)' }}>Try Again</button>
         </div>
       ) : null}
     </div>

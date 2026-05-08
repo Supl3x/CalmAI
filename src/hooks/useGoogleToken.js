@@ -40,11 +40,27 @@ export function useGoogleToken() {
               resolve(response.access_token)
             }
           },
+          error_callback: (err) => {
+            reject(new Error(err.type || 'Google popup blocked or closed.'))
+          }
         })
       }
 
+      // Add a safety timeout so it never hangs forever if the browser silently blocks it
+      const timeoutId = setTimeout(() => {
+        reject(new Error('Google login timed out or popup was blocked by the browser.'))
+      }, 15000)
+
       // Request token — this opens the Google popup
       clientRef.current.requestAccessToken({ prompt: '' })
+      
+      // Clear timeout if it resolves early (hacky but works since we can't hook into the exact resolve moment easily without modifying the callback above, but let's just leave the timeout as a fallback)
+      // Actually we should clear it in the callbacks:
+      const originalCallback = clientRef.current.callback;
+      clientRef.current.callback = (res) => { clearTimeout(timeoutId); originalCallback(res); }
+      const originalErrorCallback = clientRef.current.error_callback;
+      clientRef.current.error_callback = (err) => { clearTimeout(timeoutId); originalErrorCallback(err); }
+
     })
   }, [])
 
