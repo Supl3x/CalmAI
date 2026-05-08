@@ -88,9 +88,15 @@ export function AuthProvider({ children }) {
         console.warn("Supabase sign out error:", error)
       }
       
-      // Clear any cached data
-      localStorage.clear()
-      sessionStorage.clear()
+      // Only clear Supabase-related storage, not everything
+      const keysToRemove = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('sb-')) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key))
       
       // Force redirect to login
       window.location.href = '/login'
