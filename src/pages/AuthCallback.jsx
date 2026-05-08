@@ -16,11 +16,19 @@ export default function AuthCallback() {
       const providerRefreshToken = session.provider_refresh_token
 
       if (providerToken) {
-        await supabase.from('profiles').update({
+        console.log("Saving Google tokens to profiles table...");
+        const { error: upsertError } = await supabase.from('profiles').upsert({
+          id: session.user.id,
           google_access_token: providerToken,
           google_refresh_token: providerRefreshToken,
           google_token_expiry: new Date(Date.now() + 3600 * 1000).toISOString(),
-        }).eq('id', session.user.id)
+        })
+        if (upsertError) {
+          console.error("Failed to save tokens:", upsertError);
+          alert("Database Error: Could not save your Google permissions. Tell your friend to check the profiles table columns!");
+        } else {
+          console.log("Tokens saved successfully!");
+        }
       }
 
       // Check if profile/onboarding exists
