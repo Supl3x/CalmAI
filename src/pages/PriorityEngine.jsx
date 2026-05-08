@@ -15,7 +15,7 @@ export default function PriorityEngine() {
   const loadTasks = async () => {
     if (!user) return
     setLoading(true)
-    const { data } = await supabase.from('tasks').select('*').eq('user_id', user.id).eq('is_complete', false).order('priority_score', { ascending: false })
+    const { data } = await supabase.from('tasks').select('*').eq('user_id', user.id).eq('is_complete', false).order('ai_priority_score', { ascending: false })
     setTasks(data ?? [])
     setLoading(false)
   }
@@ -41,7 +41,7 @@ export default function PriorityEngine() {
 
   const completeTask = async (id) => {
     setTasks(prev => prev.filter(t => t.id !== id))
-    await supabase.from('tasks').update({ is_complete: true, completed_at: new Date().toISOString() }).eq('id', id)
+    await supabase.from('tasks').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', id)
   }
 
   if (loading) {
@@ -82,7 +82,7 @@ export default function PriorityEngine() {
           </Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-md)', maxHeight: '60vh', overflowY: 'auto', paddingRight: '10px' }}>
           {/* Priority #1 */}
           {tasks[0] && (
             <div style={{ gridColumn: '1 / -1' }}>
@@ -97,11 +97,11 @@ export default function PriorityEngine() {
                   #1 PRIORITY
                 </div>
                 <div style={{ marginBottom: 'var(--space-md)' }}>
-                  <span style={{ border: '2px solid black', padding: '2px 8px', backgroundColor: 'black', color: 'white', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Score: {tasks[0].priority_score}</span>
-                  <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'clamp(20px,3vw,36px)', color: 'white', marginTop: '8px', lineHeight: 1, textTransform: 'uppercase' }}>{tasks[0].description}</h3>
+                  <span style={{ border: '2px solid black', padding: '2px 8px', backgroundColor: 'black', color: 'white', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Score: {tasks[0].ai_priority_score || tasks[0].priority_score}</span>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'clamp(20px,3vw,36px)', color: 'white', marginTop: '8px', lineHeight: 1, textTransform: 'uppercase' }}>{tasks[0].title || 'Task'}</h3>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 700, color: 'black', fontSize: '14px' }}>{tasks[0].parent_task}</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 700, color: 'black', fontSize: '14px' }}>{tasks[0].description}</p>
                   <button onClick={() => completeTask(tasks[0].id)} style={{ border: '3px solid black', backgroundColor: 'white', padding: '8px 20px', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '14px', textTransform: 'uppercase' }}>
                     ✓ Mark Done
                   </button>
@@ -116,16 +116,14 @@ export default function PriorityEngine() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, border: '2px solid var(--on-background)', padding: '2px 8px', textTransform: 'uppercase' }}>#{i + 2}</span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, border: '2px solid var(--on-background)', padding: '2px 8px', backgroundColor: 'var(--secondary-fixed)', textTransform: 'uppercase' }}>Score: {task.priority_score}</span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, border: '2px solid var(--on-background)', padding: '2px 8px', backgroundColor: 'var(--secondary-fixed)', textTransform: 'uppercase' }}>Score: {task.ai_priority_score || task.priority_score}</span>
                 </div>
                 <button onClick={() => completeTask(task.id)} style={{ background: 'none', border: '2px solid var(--on-background)', cursor: 'pointer', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Done</button>
               </div>
-              <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '18px', marginBottom: '8px', textTransform: 'uppercase' }}>{task.description}</h4>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--on-surface-variant)', marginBottom: 'var(--space-sm)' }}>{task.parent_task}</p>
+              <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '18px', marginBottom: '8px', textTransform: 'uppercase' }}>{task.title || 'Task'}</h4>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--on-surface-variant)', marginBottom: 'var(--space-sm)' }}>{task.description}</p>
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                {[{ l: 'D', v: task.difficulty }, { l: 'R', v: task.resistance }, { l: 'U', v: task.urgency }].map(s => (
-                  <span key={s.l} style={{ border: '2px solid var(--on-background)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, backgroundColor: 'var(--surface-variant)' }}>{s.l}: {s.v}/10</span>
-                ))}
+                <span style={{ border: '2px solid var(--on-background)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700, backgroundColor: 'var(--surface-variant)' }}>D: {task.ai_difficulty || 'medium'}</span>
               </div>
             </div>
           ))}

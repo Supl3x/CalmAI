@@ -27,8 +27,8 @@ serve(async (req) => {
 
     // 1. Fetch user's tasks from DB
     const { data: tasks } = await supabase.from('tasks')
-      .select('description, priority_score').eq('user_id', userId).eq('is_complete', false)
-      .order('priority_score', { ascending: false }).limit(5)
+      .select('title, description, ai_priority_score').eq('user_id', userId).eq('status', 'todo')
+      .order('ai_priority_score', { ascending: false }).limit(5)
 
     // 2. Fetch open loop count
     const { count: loopCount } = await supabase.from('open_loops')

@@ -59,7 +59,7 @@ export default function MicroTaskDecomposer() {
     const prompt = `You are a productivity AI. Break this task into 3-8 concrete subtasks.
 Task: "${task}"
 Return ONLY valid JSON array, no explanation, no markdown:
-[{ "description": "...", "difficulty": 1-10, "resistance": 1-10, "urgency": 5 }]`
+[{ "title": "short title", "description": "...", "ai_difficulty": "easy" | "medium" | "hard", "ai_priority_score": 1-100 }]`
 
     try {
       setProgress(50)
@@ -74,11 +74,13 @@ Return ONLY valid JSON array, no explanation, no markdown:
       // Save to Supabase
       const rows = parsed.map(s => ({
         user_id: user.id,
-        parent_task: task,
+        title: s.title || "Subtask",
         description: s.description,
-        difficulty: s.difficulty ?? 5,
-        resistance: s.resistance ?? 5,
-        urgency: s.urgency ?? 5,
+        ai_parent_prompt: task,
+        ai_difficulty: s.ai_difficulty || 'medium',
+        ai_priority_score: s.ai_priority_score || 50,
+        ai_generated: true,
+        ai_source: 'decomposer'
       }))
       const { data, error: dbError } = await supabase.from('tasks').insert(rows).select()
       if (dbError) throw dbError
@@ -96,9 +98,10 @@ Return ONLY valid JSON array, no explanation, no markdown:
 
   const toggleDone = async (id) => {
     const task = subtasks.find(t => t.id === id)
-    const newVal = !task.is_complete
-    setSubtasks(prev => prev.map(t => t.id === id ? { ...t, is_complete: newVal } : t))
-    await supabase.from('tasks').update({ is_complete: newVal, completed_at: newVal ? new Date().toISOString() : null }).eq('id', id)
+    const newStatus = task.status === 'completed' ? 'todo' : 'completed'
+    const newVal = newStatus === 'completed'
+    setSubtasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus, is_complete: newVal } : t))
+    await supabase.from('tasks').update({ status: newStatus, completed_at: newVal ? new Date().toISOString() : null }).eq('id', id)
   }
 
   const deleteTask = async (id) => {
@@ -220,11 +223,11 @@ Return ONLY valid JSON array, no explanation, no markdown:
                       <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--outline)' }}>delete</span>
                     </button>
                   </div>
-                  <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '16px', textTransform: 'uppercase', marginBottom: '8px', textDecoration: st.is_complete ? 'line-through' : 'none' }}>{st.description}</h4>
+                  <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '16px', textTransform: 'uppercase', marginBottom: '8px', textDecoration: st.is_complete ? 'line-through' : 'none' }}>{st.title || 'Subtask'}</h4>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--on-surface-variant)', marginBottom: '8px' }}>{st.description}</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
-                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--surface-variant)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>D: {st.difficulty}/10</span>
-                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--surface-variant)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>R: {st.resistance}/10</span>
-                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--secondary-fixed)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>Score: {st.priority_score}</span>
+                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: st.ai_difficulty === 'hard' ? 'var(--error-container)' : st.ai_difficulty === 'easy' ? 'var(--secondary-container)' : 'var(--surface-variant)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>D: {st.ai_difficulty}</span>
+                    <span style={{ border: '2px solid var(--on-background)', backgroundColor: 'var(--secondary-fixed)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 700 }}>Score: {st.ai_priority_score}</span>
                   </div>
                   <div style={{ borderTop: '4px solid var(--on-background)', paddingTop: '8px', display: 'flex', justifyContent: 'flex-end' }}>
                     <button

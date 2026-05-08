@@ -55,10 +55,10 @@ serve(async (req) => {
 
           if (emailTexts.length > 0) {
             // Parse tasks from emails
-            const parsePrompt = `You are an AI that extracts tasks from emails.
+            const parsePrompt = `You are an AI that extracts tasks from emails based on keywords and deadlines.
 Emails: ${JSON.stringify(emailTexts)}
-Extract any actionable tasks. Return ONLY a valid JSON array:
-[{"description": "...", "difficulty": 1-10, "resistance": 1-10, "urgency": 1-10}]`
+Extract any actionable tasks. Pay special attention to deadlines or urgent keywords. Return ONLY a valid JSON array:
+[{"title": "short title", "description": "...", "ai_difficulty": "easy" | "medium" | "hard", "ai_priority_score": 1-100 (higher if urgent/deadline)}]`
 
             const parseRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
               method: 'POST',
@@ -76,12 +76,11 @@ Extract any actionable tasks. Return ONLY a valid JSON array:
             // Insert into Supabase
             const rows = extractedTasks.map((t: any) => ({
               user_id: userId,
-              parent_task: 'Gmail Extracted Task',
+              title: t.title || 'Gmail Task',
               description: t.description,
-              difficulty: t.difficulty ?? 5,
-              resistance: t.resistance ?? 5,
-              urgency: t.urgency ?? 5,
-              source: 'gmail',
+              ai_difficulty: t.ai_difficulty || 'medium',
+              ai_priority_score: t.ai_priority_score || 50,
+              ai_source: 'priority_engine',
               ai_generated: true
             }))
             if (rows.length > 0) {
@@ -98,8 +97,8 @@ Extract any actionable tasks. Return ONLY a valid JSON array:
     const { data: dbTasks } = await supabase.from('tasks')
       .select('*')
       .eq('user_id', userId)
-      .eq('is_complete', false)
-      .order('priority_score', { ascending: false })
+      .eq('status', 'todo')
+      .order('ai_priority_score', { ascending: false })
 
     const topTasks = (dbTasks ?? []).slice(0, 5)
 

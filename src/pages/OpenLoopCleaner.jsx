@@ -35,7 +35,7 @@ export default function OpenLoopCleaner() {
 
   useEffect(() => {
     if (!user) return
-    supabase.from('open_loops').select('*').eq('user_id', user.id).eq('is_complete', false).order('created_at', { ascending: false })
+    supabase.from('open_loops').select('*').eq('user_id', user.id).eq('status', 'open').order('created_at', { ascending: false })
       .then(({ data }) => { setLoops(data ?? []); setLoading(false) })
 
     const channel = supabase.channel('loops-' + user.id)
@@ -49,11 +49,11 @@ export default function OpenLoopCleaner() {
     if (!input.trim()) return
     const content = input.trim()
     const tempId = 'temp-' + Date.now()
-    const tempLoop = { id: tempId, content, category: 'Classifying...', urgency: 'Medium', created_at: new Date().toISOString() }
+    const tempLoop = { id: tempId, title: content, status: 'open', source_type: 'manual', created_at: new Date().toISOString() }
     setLoops(prev => [tempLoop, ...prev])
     setInput('')
 
-    const { data, error } = await supabase.from('open_loops').insert({ user_id: user.id, content }).select().single()
+    const { data, error } = await supabase.from('open_loops').insert({ user_id: user.id, title: content, source_type: 'manual' }).select().single()
     if (error) { setLoops(prev => prev.filter(l => l.id !== tempId)); return }
     setLoops(prev => prev.map(l => l.id === tempId ? data : l))
 
@@ -62,17 +62,7 @@ export default function OpenLoopCleaner() {
   }
 
   const classifyLoop = async (loopId, content) => {
-    try {
-      const prompt = `Classify this thought into category and urgency.
-Thought: "${content}"
-Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder", "urgency": "High|Medium|Low" }`
-      let raw = await callGroq(prompt)
-      raw = raw.replace(/```json?/gi, '').replace(/```/g, '').trim()
-      const { category, urgency } = JSON.parse(raw)
-      await supabase.from('open_loops').update({ category, urgency }).eq('id', loopId)
-    } catch (e) {
-      console.warn('Classification failed:', e)
-    }
+    // Classification disabled since category/urgency columns were removed in master schema
   }
 
   const importEmailsAsLoops = async () => {
@@ -83,9 +73,8 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
 
     const newLoops = (data?.emails ?? []).map(e => ({
       user_id: user.id,
-      content: `Reply to email: "${e.subject}" from ${e.from}`,
-      category: 'Uncategorised',
-      urgency: 'Medium',
+      title: `Reply to email: "${e.subject}" from ${e.from}`,
+      source_type: 'email'
     }))
 
     if (newLoops.length > 0) {
@@ -116,7 +105,7 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
 
   const completeLoop = async (id) => {
     setLoops(prev => prev.filter(l => l.id !== id))
-    await supabase.from('open_loops').update({ is_complete: true }).eq('id', id)
+    await supabase.from('open_loops').update({ status: 'closed' }).eq('id', id)
   }
 
   const scheduleLoop = async (id, days) => {
@@ -173,8 +162,8 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
       <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', marginBottom: 'var(--space-md)' }}>
         {[
           { label: 'Total Loops', val: loops.length },
-          { label: 'High Urgency', val: loops.filter(l => l.urgency === 'High').length },
-          { label: 'Classified', val: loops.filter(l => l.category && l.category !== 'Classifying...').length },
+          { label: 'Manual', val: loops.filter(l => l.source_type === 'manual').length },
+          { label: 'Imported', val: loops.filter(l => l.source_type && l.source_type !== 'manual').length },
         ].map(s => (
           <div key={s.label} style={{ padding: '6px 16px', border: '3px solid var(--on-background)', backgroundColor: 'var(--surface-container)', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '13px', textTransform: 'uppercase' }}>
             {s.val} {s.label}
@@ -198,7 +187,7 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
               breakInside: 'avoid',
               border: '4px solid var(--on-background)',
               boxShadow: '8px 8px 0px 0px #000',
-              backgroundColor: urgencyColors[loop.urgency] || 'var(--surface-container)',
+              backgroundColor: 'var(--surface-container)',
               padding: 'var(--space-md)',
               marginBottom: 'var(--space-md)',
               transform: `rotate(${rotations[i % rotations.length]})`,
@@ -210,16 +199,13 @@ Return ONLY JSON (no markdown): { "category": "Finance|Study|Personal|Reminder",
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-sm)' }}>
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                  <span style={{ backgroundColor: 'var(--on-background)', color: 'white', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{loop.category || 'Classifying...'}</span>
-                  {loop.urgency && loop.urgency !== 'Classifying...' && (
-                    <span style={{ backgroundColor: loop.urgency === 'High' ? 'var(--error)' : 'white', color: loop.urgency === 'High' ? 'white' : 'var(--on-background)', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', border: '2px solid var(--on-background)' }}>{loop.urgency}</span>
-                  )}
+                  <span style={{ backgroundColor: 'var(--on-background)', color: 'white', padding: '2px 8px', fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>{loop.source_type || 'Unknown'}</span>
                 </div>
                 <button onClick={() => completeLoop(loop.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--tertiary)' }}>check_circle</span>
                 </button>
               </div>
-              <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', marginBottom: 'var(--space-sm)', lineHeight: 1.4 }}>"{loop.content}"</p>
+              <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', marginBottom: 'var(--space-sm)', lineHeight: 1.4 }}>"{loop.title || 'Untitled'}"</p>
               {loop.scheduled_date ? (
                 <div style={{ fontSize: '11px', fontFamily: 'var(--font-body)', fontWeight: 700, color: 'var(--secondary)', textTransform: 'uppercase' }}>📅 Scheduled: {loop.scheduled_date}</div>
               ) : (
