@@ -110,6 +110,69 @@ export default function DailyBriefing() {
                 </div>
               ))}
             </div>
+
+            {/* Calendar Events */}
+            {briefing.calendar_events && briefing.calendar_events.length > 0 && (
+              <>
+                <h4 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', marginBottom: 'var(--space-sm)', borderTop: '4px solid var(--on-background)', paddingTop: 'var(--space-sm)', marginTop: 'var(--space-md)' }}>
+                  📅 Today's Meetings ({briefing.calendar_events.length})
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {briefing.calendar_events.map((event, i) => (
+                    <div key={event.id || i} className="brutalist-card" style={{ backgroundColor: 'var(--tertiary-fixed-dim)', padding: 'var(--space-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '12px', backgroundColor: 'var(--primary)', color: 'white', padding: '2px 8px', border: '2px solid var(--on-background)' }}>
+                              {event.time}
+                            </span>
+                            {event.meetLink && (
+                              <a href={event.meetLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--primary)' }}>videocam</span>
+                              </a>
+                            )}
+                          </div>
+                          <h5 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>
+                            {event.name}
+                          </h5>
+                          {event.description && (
+                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--on-surface-variant)', marginBottom: '4px' }}>
+                              {event.description.substring(0, 100)}{event.description.length > 100 ? '...' : ''}
+                            </p>
+                          )}
+                          {event.location && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--on-surface-variant)' }}>location_on</span>
+                              <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--on-surface-variant)' }}>
+                                {event.location}
+                              </span>
+                            </div>
+                          )}
+                          {event.attendees && event.attendees.length > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--on-surface-variant)' }}>group</span>
+                              <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--on-surface-variant)' }}>
+                                {event.attendees.length} attendee{event.attendees.length > 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Email Alert */}
+            {briefing.unread_emails > 10 && (
+              <div style={{ backgroundColor: 'var(--secondary-container)', border: '3px solid var(--on-background)', padding: 'var(--space-sm)', marginTop: 'var(--space-md)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: '24px' }}>mail</span>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 700 }}>
+                  You have {briefing.unread_emails} unread emails. Consider a 10-minute inbox triage before deep work.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Actions Sidebar */}

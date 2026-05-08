@@ -65,10 +65,17 @@ serve(async (req) => {
       const gmailData = await gmailRes.json()
 
       calendarEvents = (calData.items ?? []).map((e: any) => ({
+        id: e.id,
         name: e.summary ?? 'Untitled',
+        description: e.description ?? '',
+        location: e.location ?? '',
         time: e.start?.dateTime
           ? new Date(e.start.dateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-          : 'All day'
+          : 'All day',
+        startTime: e.start?.dateTime ?? e.start?.date,
+        endTime: e.end?.dateTime ?? e.end?.date,
+        attendees: (e.attendees ?? []).map((a: any) => a.email),
+        meetLink: e.hangoutLink ?? e.conferenceData?.entryPoints?.[0]?.uri ?? null
       }))
       unreadEmailCount = gmailData.resultSizeEstimate ?? 0
     } catch (e: any) {
@@ -80,7 +87,7 @@ serve(async (req) => {
 User data:
 - Top tasks (by priority): ${JSON.stringify(tasks)}
 - Yesterday's performance: ${JSON.stringify(yesterdayStats ?? { tasks_completed: 0, focus_minutes: 0 })}
-- Today's calendar: ${JSON.stringify(calendarEvents)}
+- Today's calendar (${calendarEvents.length} events): ${JSON.stringify(calendarEvents.map(e => ({ name: e.name, time: e.time })))}
 
 Return ONLY this JSON structure, no extra text:
 {
@@ -116,7 +123,11 @@ Return ONLY this JSON structure, no extra text:
       }
     }
 
-    // 6. Save to daily_briefings
+    // 6. Add calendar events to content
+    content.calendar_events = calendarEvents
+    content.unread_emails = unreadEmailCount
+
+    // 7. Save to daily_briefings
     await supabase.from('daily_briefings').upsert({
       user_id: userId,
       briefing_date: today,
