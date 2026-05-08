@@ -42,14 +42,14 @@ export default function DailyBriefing() {
     load()
   }, [user?.id])
 
-  // Re-load when user switches back to this tab
+  // Re-load when user switches back to this tab — only if no briefing loaded yet
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && user && !generating) generateBriefing()
+      if (document.visibilityState === 'visible' && user && !briefing && !generating) generateBriefing()
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [user?.id])
+  }, [user?.id, briefing, generating])
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'GOOD MORNING,' : hour < 17 ? 'GOOD AFTERNOON,' : 'GOOD EVENING,'

@@ -112,8 +112,28 @@ Return ONLY valid JSON array, no explanation, no markdown:
   // Load recent decompositions
   useEffect(() => {
     if (!user) return
-    supabase.from('tasks').select('*').eq('user_id', user.id).eq('is_complete', false).order('created_at', { ascending: false }).limit(8)
-      .then(({ data }) => { if (data?.length) setSubtasks(data) })
+    const loadSubtasks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tasks').select('*')
+          .eq('user_id', user.id)
+          .eq('is_complete', false)
+          .order('created_at', { ascending: false })
+          .limit(8)
+        if (error) throw error
+        if (data?.length) setSubtasks(data)
+      } catch (e) {
+        console.error('Failed to load recent tasks:', e.message)
+      }
+    }
+    loadSubtasks()
+
+    // Re-fetch when tab becomes visible again
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadSubtasks()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [user?.id])
 
   return (
