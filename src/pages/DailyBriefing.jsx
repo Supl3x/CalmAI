@@ -19,6 +19,15 @@ export default function DailyBriefing() {
     try {
       console.log('Generating briefing for user:', user.id)
       
+      // Clear calendar cache to force fresh data fetch
+      const today = new Date().toISOString().split('T')[0]
+      const cacheKey = `calendar_${user.id}_${today}`
+      await supabase
+        .from('api_cache')
+        .delete()
+        .eq('cache_key', cacheKey)
+      console.log('Cleared calendar cache:', cacheKey)
+      
       const { data, error } = await supabase.functions.invoke('generate-briefing', {
         body: { userId: user.id }
       })
@@ -31,7 +40,7 @@ export default function DailyBriefing() {
       console.log('Calendar events in briefing:', data.content?.calendar_events?.length || 0)
 
       setBriefing(data.content)
-      setDemoMode(!!data.content?._demo)
+      setDemoMode(false) // Always clear demo mode when syncing real data
       setLastSync(new Date().toISOString())
       
       // Update last sync time
@@ -47,26 +56,7 @@ export default function DailyBriefing() {
     }
   }
 
-  const loadDemoBriefing = async () => {
-    if (!user) return
-    setGenerating(true)
-    setError(null)
-    try {
-      const content = buildMockBriefingContent()
-      const { error: upErr } = await supabase.from('daily_briefings').upsert(
-        { user_id: user.id, briefing_date: today, content },
-        { onConflict: 'user_id,briefing_date' }
-      )
-      if (upErr) throw upErr
-      setBriefing(content)
-      setDemoMode(true)
-    } catch (e) {
-      console.error('Demo briefing error:', e)
-      setError(e.message || 'Could not save demo briefing.')
-    } finally {
-      setGenerating(false)
-    }
-  }
+
 
   useEffect(() => {
     if (!user) return
@@ -112,11 +102,7 @@ export default function DailyBriefing() {
             Last synced: {timeSinceSync < 1 ? 'Just now' : `${timeSinceSync} min ago`}
           </p>
         )}
-        {demoMode && (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 700, marginTop: '12px', padding: '8px 12px', border: '3px dashed var(--secondary)', backgroundColor: 'var(--secondary-container)', color: 'var(--on-secondary-container)' }}>
-            DEMO MODE: calendar below is sample data (not your real Google Calendar). Use "Sync calendar" to fetch real data.
-          </p>
-        )}
+
       </section>
 
       {generating ? (
@@ -254,9 +240,6 @@ export default function DailyBriefing() {
               <button className="brutalist-btn" onClick={generateBriefing} disabled={generating} style={{ width: '100%', padding: 'var(--space-sm)', backgroundColor: 'var(--primary-container)', color: 'var(--on-primary-container)', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
                 <span className="material-symbols-outlined">sync</span>SYNC CALENDAR
               </button>
-              <button className="brutalist-btn" onClick={loadDemoBriefing} disabled={generating} style={{ width: '100%', padding: 'var(--space-sm)', backgroundColor: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed)', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <span className="material-symbols-outlined">science</span>LOAD DEMO CALENDAR
-              </button>
             </div>
           </div>
         </div>
@@ -269,7 +252,6 @@ export default function DailyBriefing() {
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             <button className="brutalist-btn" onClick={generateBriefing} style={{ backgroundColor: 'var(--primary)', color: 'white', padding: 'var(--space-sm) var(--space-md)' }}>Try Again</button>
-            <button className="brutalist-btn" onClick={loadDemoBriefing} disabled={generating} style={{ backgroundColor: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed)', padding: 'var(--space-sm) var(--space-md)' }}>Load demo calendar</button>
           </div>
         </div>
       ) : !generating && !error && !briefing ? (
@@ -280,9 +262,6 @@ export default function DailyBriefing() {
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="brutalist-btn" onClick={generateBriefing} style={{ backgroundColor: 'var(--primary)', color: 'white', padding: 'var(--space-sm) var(--space-md)' }}>
               Generate Briefing
-            </button>
-            <button className="brutalist-btn" onClick={loadDemoBriefing} style={{ backgroundColor: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed)', padding: 'var(--space-sm) var(--space-md)' }}>
-              Load Demo Calendar
             </button>
           </div>
         </div>
