@@ -16,8 +16,9 @@ export default function WeeklyReport() {
   const [loading, setLoading] = useState(true)
   const [googleStatsDemo, setGoogleStatsDemo] = useState(false)
 
-  useEffect(() => {
+  const loadWeeklyData = () => {
     if (!user) return
+    setLoading(true)
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - 7)
     const cutoffStr = cutoff.toISOString()
@@ -44,6 +45,21 @@ export default function WeeklyReport() {
       console.error('Failed to load weekly data:', err)
       setLoading(false)
     })
+  }
+
+  useEffect(() => {
+    loadWeeklyData()
+  }, [user?.id])
+
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadWeeklyData()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [user?.id])
 
   const totalFocusMinutes = data.sessions.reduce((a, s) => a + s.duration_minutes, 0)
@@ -109,6 +125,10 @@ export default function WeeklyReport() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <button className="brutalist-btn" onClick={loadWeeklyData} disabled={loading} style={{ backgroundColor: 'var(--primary)', color: 'white', padding: '12px 24px', fontSize: '14px', cursor: loading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>
+            {loading ? 'Refreshing...' : 'Refresh Data'}
+          </button>
           <button className="brutalist-btn" onClick={handleGetInsights} disabled={loadingInsights || loading} style={{ backgroundColor: 'var(--tertiary-fixed)', padding: '12px 24px', fontSize: '14px', cursor: loadingInsights ? 'wait' : 'pointer', opacity: loading ? 0.5 : 1 }}>
             {loadingInsights ? '🤖 Analyzing...' : '🤖 Get AI Insights'}
           </button>
