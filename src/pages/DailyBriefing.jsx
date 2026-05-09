@@ -17,12 +17,18 @@ export default function DailyBriefing() {
     setGenerating(true)
     setError(null)
     try {
+      console.log('Generating briefing for user:', user.id)
+      
       const { data, error } = await supabase.functions.invoke('generate-briefing', {
         body: { userId: user.id }
       })
 
+      console.log('Briefing response:', { data, error })
+
       if (error) throw new Error(error.message || 'Edge function failed')
       if (!data?.content) throw new Error('No content returned from AI')
+
+      console.log('Calendar events in briefing:', data.content?.calendar_events?.length || 0)
 
       setBriefing(data.content)
       setDemoMode(!!data.content?._demo)

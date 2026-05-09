@@ -34,38 +34,14 @@ export default function AuthCallback() {
         userId: session.user.id
       })
 
-      if (providerToken) {
-        setStatus('Saving Google permissions...')
-        try {
-          const updatePayload = {
-            id: session.user.id,
-            google_access_token: providerToken,
-            google_token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-          }
-          // Only overwrite refresh token if Google actually returned one
-          if (providerRefreshToken) {
-            updatePayload.google_refresh_token = providerRefreshToken
-          }
-          
-          console.log('Upserting to profiles table...', updatePayload)
-          const { error: upsertError } = await supabase.from('profiles').upsert(updatePayload, { onConflict: 'id' })
-
-          if (upsertError) {
-            console.error('Failed to save tokens:', upsertError)
-            setStatus('Warning: Could not save Google tokens. Continuing...')
-            await new Promise(resolve => setTimeout(resolve, 1000))
-          } else {
-            console.log('Google tokens saved successfully!')
-          }
-        } catch (e) {
-          console.error('Token save error:', e)
-        }
-      } else {
-        console.warn('No provider_token - Google scopes may not have been granted')
-      }
-
+      // Skip the profile upsert - let the database trigger handle profile creation
+      // Just redirect to dashboard immediately
+      console.log('Skipping profile upsert, redirecting to dashboard...')
       setStatus('Redirecting to dashboard...')
-      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Give the trigger time to create the profile
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
       navigate('/dashboard', { replace: true })
     }
 

@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import PublicLayout from './components/layout/PublicLayout'
@@ -19,15 +20,16 @@ import MicroTaskDecomposer from './pages/MicroTaskDecomposer'
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Auth Callback */}
-          <Route path="/auth/callback" element={<AuthCallback />} />
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Auth Callback */}
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
-          {/* Public Routes */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<LandingPage />} />
+            {/* Public Routes */}
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
           </Route>
@@ -53,5 +55,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </ErrorBoundary>
   )
 }

@@ -38,6 +38,12 @@ serve(async (req) => {
       const dayEnd = new Date(now)
       dayEnd.setUTCHours(23, 59, 59, 999)
 
+      console.log('Fetching calendar events:', {
+        timeMin: dayStart.toISOString(),
+        timeMax: dayEnd.toISOString(),
+        currentTime: now.toISOString()
+      })
+
       const calData = await fetchCalendarWithCache({
         supabase,
         userId,
@@ -45,6 +51,11 @@ serve(async (req) => {
         timeMin: dayStart.toISOString(),
         timeMax: dayEnd.toISOString(),
         cacheMinutes: 10 // Cache for 10 minutes
+      })
+
+      console.log('Calendar API response:', {
+        itemsCount: calData.items?.length || 0,
+        items: calData.items
       })
 
       calendarEvents = (calData.items ?? []).map((e: any) => ({

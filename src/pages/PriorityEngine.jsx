@@ -16,12 +16,17 @@ export default function PriorityEngine() {
     if (!user) return
     setLoading(true)
     try {
+      console.log('Loading tasks for user:', user.id)
+      
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
         .eq('user_id', user.id)
         .eq('status', 'todo')
         .order('ai_priority_score', { ascending: false })
+      
+      console.log('Tasks query result:', { data, error, count: data?.length })
+      
       if (error) throw error
       setTasks(data ?? [])
       
@@ -40,7 +45,20 @@ export default function PriorityEngine() {
     }
   }
 
-  useEffect(() => { loadTasks() }, [user?.id])
+  useEffect(() => { 
+    loadTasks() 
+  }, [user?.id])
+  
+  // Reload tasks when component becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        loadTasks()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [user?.id])
 
   const loadDemoGmailTasks = async () => {
     if (!user) return
@@ -61,14 +79,45 @@ export default function PriorityEngine() {
   }
 
   const handleRerank = async () => {
+    if (explaining) return // Prevent double-clicks
+    
     setExplaining(true)
     setExplanation('Fetching Gmail and analyzing priorities...')
+    
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setExplanation('⏱️ Request timed out. This might be due to:\n1. Gmail API rate limiting (wait 5-10 minutes)\n2. Network issues\n3. Edge function timeout\n\nTry again in a few minutes.')
+      setExplaining(false)
+    }, 30000) // 30 second timeout
+    
     try {
       const { data, error } = await supabase.functions.invoke('priority-explain', {
         body: { userId: user.id }
       })
+      
+      clearTimeout(timeoutId)
+      
+      console.log('Priority engine response:', { data, error })
+      
       if (error) throw error
-      setExplanation(data.explanation || 'Tasks prioritized successfully.')
+      
+      if (data?.error) {
+        // Check if it's a rate limit error
+        if (data.error.includes('rate limit') || data.error.includes('429')) {
+          throw new Error('Gmail API rate limit reached. Please wait 5-10 minutes and try again.')
+        }
+        throw new Error(data.error)
+      }
+      
+      if (data?.needsReauth) {
+        setExplanation('⚠️ Google authentication expired. Please sign out and sign back in with Google to reconnect your account.')
+        return
+      }
+      
+      const tasksFound = data?.tasks?.length || 0
+      const gmailTasks = data?.tasks?.filter(t => t.ai_source === 'priority_engine').length || 0
+      
+      setExplanation(data.explanation || `Tasks prioritized successfully. Found ${tasksFound} total tasks (${gmailTasks} from Gmail).`)
       
       // Update last sync time
       await supabase
@@ -78,8 +127,17 @@ export default function PriorityEngine() {
       
       await loadTasks()
     } catch (e) {
+      clearTimeout(timeoutId)
       console.error('Priority engine error:', e)
-      setExplanation(`Error: ${e.message || 'Failed to fetch Gmail data. Please ensure your Google account is connected.'}`)
+      
+      let errorMsg = e.message || 'Failed to fetch Gmail data.'
+      
+      // Provide specific guidance for rate limiting
+      if (errorMsg.includes('rate limit') || errorMsg.includes('429')) {
+        errorMsg = '🚫 Gmail API Rate Limit Reached\n\nYou\'ve made too many requests. Google limits how often you can call their APIs.\n\nWhat to do:\n1. Wait 5-10 minutes before trying again\n2. The app uses caching to reduce API calls\n3. Avoid clicking the button repeatedly\n\nYour existing tasks are still visible below.'
+      }
+      
+      setExplanation(`❌ Error: ${errorMsg}\n\nChecklist:\n1. Edge function deployed? Run: supabase functions deploy priority-explain\n2. Secrets set in Supabase Dashboard? (GROQ_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)\n3. Google account connected? Sign out and sign in again.\n4. Rate limited? Wait 5-10 minutes.`)
     } finally {
       setExplaining(false)
     }
@@ -118,10 +176,6 @@ export default function PriorityEngine() {
             <span className="material-symbols-outlined">{explaining ? 'hourglass_empty' : 'psychology'}</span>
             {explaining ? 'FETCHING GMAIL & ANALYZING...' : 'RE-PRIORITISE WITH AI'}
           </button>
-          <button className="brutalist-btn" type="button" onClick={loadDemoGmailTasks} disabled={explaining} style={{ backgroundColor: 'var(--tertiary-fixed)', color: 'var(--on-tertiary-fixed)', padding: 'var(--space-sm) var(--space-md)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', cursor: explaining ? 'not-allowed' : 'pointer' }}>
-            <span className="material-symbols-outlined">science</span>
-            LOAD DEMO GMAIL TASKS
-          </button>
         </div>
       </section>
 
@@ -129,7 +183,9 @@ export default function PriorityEngine() {
       {explanation && (
         <div style={{ backgroundColor: 'var(--on-background)', color: 'var(--background)', border: '4px solid var(--on-background)', padding: 'var(--space-md)', marginBottom: 'var(--space-md)', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
           <span className="material-symbols-outlined" style={{ color: 'var(--tertiary-fixed-dim)', flexShrink: 0, fontSize: '28px' }}>psychology</span>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: '15px', lineHeight: 1.7, fontStyle: 'italic' }}>{explanation}</p>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '15px', lineHeight: 1.7, fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{explanation}</p>
+          </div>
         </div>
       )}
 

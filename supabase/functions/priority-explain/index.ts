@@ -50,6 +50,8 @@ serve(async (req) => {
         })
         
         const messages = gmailData.messages ?? []
+        
+        console.log(`Gmail API returned ${messages.length} unread messages`)
 
         if (messages.length > 0) {
           const emailTexts = []

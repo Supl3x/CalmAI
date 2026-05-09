@@ -7,24 +7,97 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [sessionError, setSessionError] = useState(null)
 
   const fetchProfile = async (userId) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    setProfile(data)
-    return data
+    try {
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      
+      const timeoutPromise = new Promise((resolve) => 
+        setTimeout(() => resolve({ data: null, error: { message: 'Profile fetch timeout' } }), 3000)
+      )
+      
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise])
+      
+      if (error) {
+        console.error('Profile fetch error:', error)
+        // Return null profile but don't block - user can still use app
+        setProfile(null)
+        return null
+      }
+      
+      setProfile(data)
+      return data
+    } catch (e) {
+      console.error('Profile fetch exception:', e)
+      setProfile(null)
+      return null
+    }
   }
+
+  // Monitor session health
+  useEffect(() => {
+    let healthCheckInterval = null
+    
+    const checkSessionHealth = async () => {
+      // Skip health check if we're on the auth callback page
+      if (window.location.pathname === '/auth/callback') {
+        return
+      }
+      
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Session health check failed:', error)
+          setSessionError(error.message)
+          return
+        }
+        
+        if (!session && user) {
+          // Session lost but user state exists - force re-auth
+          console.warn('Session lost, clearing user state')
+          setUser(null)
+          setProfile(null)
+          setSessionError('Session expired. Please sign in again.')
+        } else if (session && !user) {
+          // Session exists but user state is missing - restore it
+          console.log('Restoring user state from session')
+          setUser(session.user)
+          await fetchProfile(session.user.id)
+        }
+        
+        setSessionError(null)
+      } catch (e) {
+        console.error('Session health check exception:', e)
+      }
+    }
+    
+    // Check session health every 60 seconds, but not during auth callback
+    if (user && window.location.pathname !== '/auth/callback') {
+      healthCheckInterval = setInterval(checkSessionHealth, 60000)
+    }
+    
+    return () => {
+      if (healthCheckInterval) clearInterval(healthCheckInterval)
+    }
+  }, [user])
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u) fetchProfile(u.id).finally(() => setLoading(false))
-      else setLoading(false)
+      if (u) {
+        fetchProfile(u.id).finally(() => setLoading(false))
+      } else {
+        setLoading(false)
+      }
     })
 
     // Listen for changes
@@ -115,7 +188,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, sessionError, signInWithGoogle, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )

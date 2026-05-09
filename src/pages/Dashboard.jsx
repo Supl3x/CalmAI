@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { useGoogleTokenSync } from '../hooks/useGoogleTokenSync'
 
 export default function Dashboard() {
   const { user, profile } = useAuth()
@@ -10,6 +11,9 @@ export default function Dashboard() {
   const [todayBriefing, setTodayBriefing] = useState(null)
   const [focusMinutes, setFocusMinutes] = useState(0)
   const [loading, setLoading] = useState(true)
+
+  // Sync Google tokens after login
+  useGoogleTokenSync()
 
   const today = new Date().toISOString().split('T')[0]
 
