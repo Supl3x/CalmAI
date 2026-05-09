@@ -9,12 +9,24 @@ export default function OpenLoopCleaner() {
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(null)
 
-  useEffect(() => {
+  const loadLoops = async () => {
     if (!user) return
-    supabase.from('open_loops').select('*').eq('user_id', user.id).eq('status', 'open').order('created_at', { ascending: false })
-      .then(({ data }) => { setLoops(data ?? []); setLoading(false) })
+    const { data } = await supabase.from('open_loops').select('*').eq('user_id', user.id).eq('status', 'open').order('created_at', { ascending: false })
+    setLoops(data ?? [])
+    setLoading(false)
+  }
 
+  useEffect(() => {
+    loadLoops()
+
+    if (!user) return
     const channel = supabase.channel('loops-' + user.id)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'open_loops', filter: `user_id=eq.${user.id}` },
+        ({ new: inserted }) => {
+          if (inserted.status === 'open') {
+            setLoops(prev => [inserted, ...prev])
+          }
+        })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'open_loops', filter: `user_id=eq.${user.id}` },
         ({ new: updated }) => setLoops(prev => prev.map(l => l.id === updated.id ? updated : l)))
       .subscribe()
@@ -63,6 +75,8 @@ export default function OpenLoopCleaner() {
 
     if (newLoops.length > 0) {
       await supabase.from('open_loops').insert(newLoops)
+      // Refetch to ensure UI is in sync (realtime will also update, but this is immediate)
+      await loadLoops()
     }
     setImporting(null)
   }
@@ -87,6 +101,8 @@ export default function OpenLoopCleaner() {
 
     if (newLoops.length > 0) {
       await supabase.from('open_loops').insert(newLoops)
+      // Refetch to ensure UI is in sync (realtime will also update, but this is immediate)
+      await loadLoops()
     }
     setImporting(null)
   }
