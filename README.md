@@ -1,19 +1,24 @@
-# CalmAI - Aggressively Organized AI Workflow Manager
+# CalmAI — Aggressively Organized AI Workflow Manager
 
-<div align="center">
+<p align="center">
+  <img src="screen.png" alt="CalmAI Banner" width="100%" />
+</p>
 
-![CalmAI Banner](src/assets/hero.png)
+<p align="center">
+  <strong>Your AI-powered productivity companion that turns chaos into calm.</strong>
+</p>
 
-**Your AI-powered productivity companion that turns chaos into calm.**
+<p align="center">
+  <a href="https://github.com/Supl3x/CalmAI"><img src="https://img.shields.io/badge/status-production%20ready-success?style=for-the-badge&logo=checkmarx&logoColor=white" /></a>
+  <a href="https://github.com/Supl3x/CalmAI/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" /></a>
+  <a href="https://drive.google.com/drive/folders/1tFuXo_ENCdJsdpr8AqJ3Do_VA9u_SeXW?usp=sharing"><img src="https://img.shields.io/badge/🎬%20Live%20Demo-Watch%20Now-ff6b6b?style=for-the-badge" /></a>
+</p>
 
-[![Production Ready](https://img.shields.io/badge/status-production%20ready-success)](https://github.com/Supl3x/CalmAI)
-[![React](https://img.shields.io/badge/React-18.3-blue)](https://reactjs.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-2.0-green)](https://supabase.com/)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-
-[Live Demo](#) • [Documentation](#-documentation) • [Quick Start](#-quick-start)
-
-</div>
+<p align="center">
+  <a href="https://drive.google.com/drive/folders/1tFuXo_ENCdJsdpr8AqJ3Do_VA9u_SeXW?usp=sharing">🎬 Live Demo</a> •
+  <a href="#-documentation">Documentation</a> •
+  <a href="#-quick-start">Quick Start</a>
+</p>
 
 ---
 
@@ -23,13 +28,64 @@ CalmAI is an AI-powered workflow manager that integrates with your Google Worksp
 
 ### Key Features
 
-- 🤖 **AI Priority Engine** - Automatically extracts and prioritizes tasks from Gmail
-- 📅 **Daily Briefing** - Smart schedule with Google Calendar integration
-- 📊 **Weekly Analytics** - Track productivity across Gmail, Calendar, and Drive
-- 🧘 **Calm Mode** - Pomodoro-style focus sessions with ambient sounds
-- 🔄 **Open Loop Cleaner** - Capture and close mental loops
-- 🎯 **Micro-Task Decomposer** - Break down complex tasks into actionable steps
-- ✍️ **AI Draft Generator** - Generate emails and documents with AI
+- 🤖 **AI Priority Engine** — Automatically extracts and prioritizes tasks from Gmail
+- 📅 **Daily Briefing** — Smart schedule with Google Calendar integration
+- 📊 **Weekly Analytics** — Track productivity across Gmail, Calendar, and Drive
+- 🧘 **Calm Mode** — Pomodoro-style focus sessions with ambient sounds
+- 🔄 **Open Loop Cleaner** — Capture and close mental loops
+- 🎯 **Micro-Task Decomposer** — Break down complex tasks into actionable steps
+- ✍️ **AI Draft Generator** — Generate emails and documents with AI
+
+---
+
+## 🛠️ Tech Stack
+
+### ⚡ Frontend
+
+<p>
+  <img src="https://img.shields.io/badge/React-18.3-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
+  <img src="https://img.shields.io/badge/React_Router-7.0-CA4245?style=for-the-badge&logo=react-router&logoColor=white" />
+  <img src="https://img.shields.io/badge/Vite-5.0-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
+  <img src="https://img.shields.io/badge/JavaScript-ES2024-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" />
+  <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/CSS3-Modern-1572B6?style=for-the-badge&logo=css3&logoColor=white" />
+  <img src="https://img.shields.io/badge/HTML5-Semantic-E34F26?style=for-the-badge&logo=html5&logoColor=white" />
+</p>
+
+### 🔧 Backend & Database
+
+<p>
+  <img src="https://img.shields.io/badge/Supabase-BaaS-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" />
+  <img src="https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Deno-Edge_Functions-000000?style=for-the-badge&logo=deno&logoColor=white" />
+  <img src="https://img.shields.io/badge/Row_Level_Security-RLS-red?style=for-the-badge&logo=shield&logoColor=white" />
+</p>
+
+### 🤖 AI & Machine Learning
+
+<p>
+  <img src="https://img.shields.io/badge/Groq_API-⚡_Ultra_Fast_Inference-F55036?style=for-the-badge&logo=groq&logoColor=white" />
+  <img src="https://img.shields.io/badge/Llama_3.1-Meta_AI-0467DF?style=for-the-badge&logo=meta&logoColor=white" />
+  <img src="https://img.shields.io/badge/AI_Priority_Engine-Custom_Built-7C3AED?style=for-the-badge&logo=openai&logoColor=white" />
+  <img src="https://img.shields.io/badge/AI_Briefing_Generator-NLP_Powered-059669?style=for-the-badge&logo=openai&logoColor=white" />
+</p>
+
+### 🌐 External APIs
+
+<p>
+  <img src="https://img.shields.io/badge/Gmail_API-Email_Integration-EA4335?style=for-the-badge&logo=gmail&logoColor=white" />
+  <img src="https://img.shields.io/badge/Google_Calendar_API-Schedule_Sync-4285F4?style=for-the-badge&logo=google-calendar&logoColor=white" />
+  <img src="https://img.shields.io/badge/Google_Drive_API-Doc_Integration-34A853?style=for-the-badge&logo=google-drive&logoColor=white" />
+  <img src="https://img.shields.io/badge/OAuth_2.0-Google_Auth-FBBC04?style=for-the-badge&logo=google&logoColor=black" />
+</p>
+
+### 🚀 Deployment & DevOps
+
+<p>
+  <img src="https://img.shields.io/badge/Vercel-Frontend_Hosting-000000?style=for-the-badge&logo=vercel&logoColor=white" />
+  <img src="https://img.shields.io/badge/Supabase_Cloud-Backend_Hosting-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" />
+  <img src="https://img.shields.io/badge/GitHub_Actions-CI%2FCD-2088FF?style=for-the-badge&logo=github-actions&logoColor=white" />
+</p>
 
 ---
 
@@ -42,6 +98,7 @@ CalmAI is an AI-powered workflow manager that integrates with your Google Worksp
 - Mental clutter from open loops
 
 ### The Solution
+
 CalmAI uses AI to:
 - Extract actionable tasks from your Gmail
 - Prioritize based on deadlines and urgency
@@ -50,6 +107,7 @@ CalmAI uses AI to:
 - Provide focused work sessions
 
 ### The Result
+
 - 📉 90% reduction in API calls (smart caching)
 - ⚡ 3-5x faster page loads
 - 🎯 Clear daily priorities
@@ -61,6 +119,7 @@ CalmAI uses AI to:
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
 - Supabase account
 - Google Cloud Console project
@@ -135,37 +194,10 @@ Visit `http://localhost:5173` to see the app.
 │                  External Services                       │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
 │  │ Gmail    │  │ Calendar │  │ Drive    │  │ Groq AI │ │
-│  │ API      │  │ API      │  │ API      │  │         │ │
+│  │ API      │  │ API      │  │ API      │  │ Llama   │ │
 │  └──────────┘  └──────────┘  └──────────┘  └─────────┘ │
 └─────────────────────────────────────────────────────────┘
 ```
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **React 18** - UI framework
-- **React Router 7** - Client-side routing
-- **Vite** - Build tool
-- **Supabase JS** - Backend client
-
-### Backend
-- **Supabase** - Backend as a Service
-- **PostgreSQL** - Database
-- **Edge Functions** - Serverless functions (Deno)
-- **Row Level Security** - Data protection
-
-### AI & APIs
-- **Groq API** - Fast AI inference (Llama 3.1)
-- **Gmail API** - Email integration
-- **Google Calendar API** - Calendar integration
-- **Google Drive API** - Document integration
-
-### Deployment
-- **Vercel** - Frontend hosting
-- **Supabase** - Backend hosting
-- **GitHub Actions** - CI/CD (optional)
 
 ---
 
@@ -219,12 +251,12 @@ Visit `http://localhost:5173` to see the app.
 
 ## 🔒 Security & Privacy
 
-- **OAuth 2.0** - Secure Google authentication
-- **Row Level Security** - Database-level access control
-- **API Caching** - Reduces external API calls
-- **Token Refresh** - Automatic token management
-- **Local Storage** - Minimal data stored locally
-- **HTTPS Only** - Encrypted communication
+- **OAuth 2.0** — Secure Google authentication
+- **Row Level Security** — Database-level access control
+- **API Caching** — Reduces external API calls
+- **Token Refresh** — Automatic token management
+- **Local Storage** — Minimal data stored locally
+- **HTTPS Only** — Encrypted communication
 
 ### Data Handling
 - Gmail data is processed but not stored permanently
@@ -237,29 +269,25 @@ Visit `http://localhost:5173` to see the app.
 
 ## 🚀 Performance
 
-### Optimizations
-- **API Caching** - 90% reduction in external API calls
-- **Smart Token Refresh** - Automatic retry logic
-- **Parallel Requests** - Batch API calls
-- **Lazy Loading** - Components loaded on demand
-- **Code Splitting** - Optimized bundle size
-
-### Metrics
-- **First Load**: 2-3 seconds
-- **Cached Load**: 0.5-1 second
-- **API Response**: <500ms (cached)
-- **Database Query**: <100ms
-- **Edge Function**: <1 second
+| Metric | Value |
+|---|---|
+| First Load | 2–3 seconds |
+| Cached Load | 0.5–1 second |
+| API Response (cached) | < 500ms |
+| Database Query | < 100ms |
+| Edge Function | < 1 second |
+| API Call Reduction | 90% (smart caching) |
 
 ---
 
 ## 📚 Documentation
 
 All code is well-documented with inline comments. Key files:
-- `src/context/AuthContext.jsx` - Authentication logic
-- `src/pages/` - All application pages
-- `supabase/functions/` - Edge Functions
-- `Backend/Schema/` - Database schema
+
+- `src/context/AuthContext.jsx` — Authentication logic
+- `src/pages/` — All application pages
+- `supabase/functions/` — Edge Functions
+- `Backend/Schema/` — Database schema
 
 ---
 
@@ -301,17 +329,17 @@ Contributions are welcome! Please follow these steps:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **Supabase** - Amazing backend platform
-- **Groq** - Lightning-fast AI inference
-- **Google** - Workspace APIs
-- **React Team** - Excellent framework
-- **Vite** - Blazing fast build tool
+- **Supabase** — Amazing backend platform
+- **Groq** — Lightning-fast AI inference
+- **Google** — Workspace APIs
+- **React Team** — Excellent framework
+- **Vite** — Blazing fast build tool
 
 ---
 
@@ -319,20 +347,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/Supl3x/CalmAI/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Supl3x/CalmAI/discussions)
-- **Email**: support@calmai.app (if applicable)
 
 ---
 
-## 🌟 Star History
+<p align="center">
+  If you find CalmAI useful, please consider giving it a ⭐
+</p>
 
-If you find CalmAI useful, please consider giving it a star! ⭐
-
----
-
-<div align="center">
-
-**Built with ❤️ by [Supl3x](https://github.com/Supl3x)**
-
-[⬆ Back to Top](#calmai---aggressively-organized-ai-workflow-manager)
-
-</div>
+<p align="center">
+  <a href="#calmai--aggressively-organized-ai-workflow-manager">⬆ Back to Top</a>
+</p>
