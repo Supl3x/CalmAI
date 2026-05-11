@@ -1,7 +1,7 @@
 # CalmAI — Aggressively Organized AI Workflow Manager
 
 <p align="center">
-  <img src="screen.png" alt="CalmAI Banner" width="100%" />
+  <img src="screen.png" alt="CalmAI Banner" width="35%" />
 </p>
 
 <p align="center">
