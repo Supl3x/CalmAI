@@ -11,12 +11,10 @@
 <p align="center">
   <a href="https://github.com/Supl3x/CalmAI"><img src="https://img.shields.io/badge/status-production%20ready-success?style=for-the-badge&logo=checkmarx&logoColor=white" /></a>
   <a href="https://github.com/Supl3x/CalmAI/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" /></a>
-  <a href="https://drive.google.com/drive/folders/1tFuXo_ENCdJsdpr8AqJ3Do_VA9u_SeXW?usp=sharing"><img src="https://img.shields.io/badge/🎬%20Live%20Demo-Watch%20Now-ff6b6b?style=for-the-badge" /></a>
+  
 </p>
 
 <p align="center">
-  <a href="https://drive.google.com/drive/folders/1tFuXo_ENCdJsdpr8AqJ3Do_VA9u_SeXW?usp=sharing">🎬 Live Demo</a> •
-  <a href="#-documentation">Documentation</a> •
   <a href="#-quick-start">Quick Start</a>
 </p>
 
